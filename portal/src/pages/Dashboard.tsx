@@ -1,0 +1,111 @@
+import { Link } from "react-router-dom";
+import { useAuth } from "../lib/auth";
+import { useMyBookings, STATUS_LABEL, type Booking } from "../lib/bookings";
+import { PACKAGE_META } from "../lib/pricing";
+import { fmtTZS, fmtDateShort, fmtTime, returnDateTime } from "../lib/format";
+import { WHATSAPP_NUMBER } from "../config";
+import { StatCard, Badge, Countdown, Spinner, Empty, Ic } from "../components/ui";
+
+function activeRental(bookings: Booking[]): Booking | null {
+  const now = Date.now();
+  return bookings.find((b) =>
+    (b.status === "delivered" || b.status === "confirmed") &&
+    returnDateTime(b.start_date, b.start_time, b.days, b.package_key).getTime() > now,
+  ) ?? null;
+}
+
+export function Dashboard() {
+  const { profile } = useAuth();
+  const { bookings, error } = useMyBookings();
+
+  if (!bookings) return <Spinner />;
+
+  const active = activeRental(bookings);
+  const next = bookings
+    .filter((b) => b.status === "pending" || b.status === "confirmed")
+    .sort((a, b) => a.start_date.localeCompare(b.start_date))[0] ?? null;
+  const outstanding = bookings
+    .filter((b) => b.payment_status === "unpaid" && b.status !== "cancelled")
+    .reduce((s, b) => s + b.total, 0);
+  const updates = [...bookings].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 4);
+  const firstName = (profile?.full_name ?? "Member").split(/\s+/)[0];
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1>Welcome back, {firstName} {profile?.tier === "premium" ? <Badge tone="gold">★ PREMIUM MEMBER</Badge> : <Badge tone="cyan">STANDARD</Badge>}</h1>
+          <p>Here's a breakdown of your membership status and current active rentals.</p>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Link to="/browse" className="btn btn-primary"><Ic name="plus" size={15} /> Rent Now</Link>
+        </div>
+      </div>
+
+      {error ? <div className="banner warn"><span className="ico">!</span><p className="grow">We couldn't load your bookings ({error}). <button className="btn btn-ghost btn-sm" type="button" onClick={() => window.location.reload()}>Retry</button></p></div> : null}
+
+      <div className="grid two">
+        <div className="card" style={active ? { borderColor: "rgba(34,217,238,.55)" } : undefined}>
+          {active ? (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <div>
+                  <h3>{PACKAGE_META[active.package_key].name} <Badge tone="cyan">ACTIVE</Badge></h3>
+                  <p style={{ color: "var(--dim)", margin: "6px 0 0", fontSize: ".88rem" }}>
+                    {active.ref} · {fmtDateShort(active.start_date)} · {fmtTime(active.start_time)} · {active.days} {active.package_key === "night" ? "night(s)" : "day(s)"}
+                  </p>
+                </div>
+                <Link to="/rentals" className="btn btn-primary btn-sm">Return info</Link>
+              </div>
+              <p style={{ font: "600 10px var(--font-mono)", letterSpacing: ".18em", color: "var(--dim)", margin: "20px 0 10px" }}>TIME REMAINING TO RETURN</p>
+              <Countdown to={returnDateTime(active.start_date, active.start_time, active.days, active.package_key)} />
+            </>
+          ) : (
+            <Empty title="No active rental right now">
+              <p style={{ margin: "0 0 14px" }}>Browse consoles and packages to start your next session.</p>
+              <Link to="/browse" className="btn btn-primary btn-sm">Browse PS5s</Link>
+            </Empty>
+          )}
+        </div>
+
+        <div className="grid" style={{ gap: 12 }}>
+          <StatCard label="Next booking" value={next ? fmtDateShort(next.start_date) : "—"} sub={next ? `${PACKAGE_META[next.package_key].name} · ${fmtTime(next.start_time)}` : "Nothing scheduled"} />
+          {outstanding > 0
+            ? <StatCard label="Balance due" value={fmtTZS(outstanding)} tone="gold" sub="Settle via M-Pesa or on delivery" alert />
+            : <StatCard label="Balance due" value={fmtTZS(0)} tone="green" sub="All settled — asante!" />}
+          {profile?.tier === "premium"
+            ? <StatCard label="Premium credit limit" value={fmtTZS(200000)} sub="Interest-free rental credit active" />
+            : <StatCard label="Membership" value="STANDARD" sub="Upgrade for credit, free deliveries & priority" />}
+        </div>
+      </div>
+
+      <div className="grid two" style={{ marginTop: 16 }}>
+        <div className="card">
+          <h3>Recent updates</h3>
+          <div className="update-list" style={{ marginTop: 14 }}>
+            {updates.length === 0 ? <Empty title="No bookings yet">Your rental updates will appear here.</Empty> : updates.map((b) => (
+              <div className="update" key={b.id}>
+                <span className={`ico ${b.status === "cancelled" ? "gold" : b.payment_status === "paid" ? "green" : "cyan"}`}>
+                  {b.status === "cancelled" ? "!" : b.payment_status === "paid" ? "✓" : "•"}
+                </span>
+                <span className="grow" style={{ flex: 1 }}>
+                  <strong>{STATUS_LABEL[b.status]} — {PACKAGE_META[b.package_key].name}</strong>
+                  <span>{b.ref} · {fmtDateShort(b.start_date)} · {fmtTZS(b.total)}</span>
+                </span>
+                <Badge tone={b.status === "cancelled" ? "red" : b.status === "completed" ? "green" : b.status === "pending" ? "gold" : "cyan"}>{b.status}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <h3>Need a hand?</h3>
+          <p style={{ color: "var(--dim)", fontSize: ".9rem" }}>Extensions, swaps or support — we reply within 30 minutes (8:00–22:00 EAT).</p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+            <a className="btn btn-gold btn-sm" href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener">WhatsApp us</a>
+            <Link to="/profile" className="btn btn-ghost btn-sm">My profile</Link>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prime Games — PS5 Rentals in Dar es Salaam</title>
+  <meta name="description" content="Rent a PS5 in Dar es Salaam. Starter, Weekend and Night packages, 1–2 hour delivery, M-Pesa or pay on delivery, no deposit — just a valid ID." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="Prime Games home">
+        <img class="brand-marks" src="assets/brand-marks.png" alt="" width="1180" height="327" />
+        <span class="brand-text">PRIME GAMES</span>
+      </a>
+      <nav class="main-nav" aria-label="Main">
+        <a href="#packages" data-i18n="nav.packages">Packages</a>
+        <a href="#book" data-i18n="nav.book">Book</a>
+        <a href="#games" data-i18n="nav.games">Games</a>
+        <a href="#delivery" data-i18n="nav.delivery">Delivery</a>
+        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+      </nav>
+      <div class="header-actions">
+        <a href="/app/index.html" class="btn btn-ghost btn-sm" data-i18n="nav.account">My account</a>
+        <button id="langToggle" class="lang-toggle" type="button" aria-label="Switch language">
+          <span class="lang-opt" data-lang="en">EN</span><span class="lang-sep">/</span><span class="lang-opt" data-lang="sw">SW</span>
+        </button>
+        <a href="#book" class="btn btn-primary btn-sm" data-i18n="nav.cta">Book now</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-slides" aria-hidden="true">
+        <div class="hero-slide is-active" style="background-image:url('assets/ps5-hero.jpg')"></div>
+        <div class="hero-slide" style="background-image:url('assets/hero/hero-lounge.jpg')"></div>
+        <div class="hero-slide" style="background-image:url('assets/hero/hero-controller.jpg')"></div>
+        <div class="hero-slide" style="background-image:url('assets/hero/hero-setup.jpg')"></div>
+      </div>
+      <div class="hero-shade" aria-hidden="true"></div>
+      <div class="container hero-inner">
+        <div class="hero-copy">
+          <p class="hero-badge" data-i18n="hero.badge">PlayStation 5 rentals · Dar es Salaam</p>
+          <h1 data-i18n="hero.title">Rent a PS5. At your door in 1–2 hours.</h1>
+          <p class="hero-sub" data-i18n="hero.sub">Day, weekend or overnight rentals anywhere in Dar es Salaam. Pay with M-Pesa or on delivery — no deposit, just a valid ID and an emergency contact.</p>
+          <div class="hero-ctas">
+            <a href="#book" class="btn btn-primary" data-i18n="hero.cta1">Choose a package</a>
+            <a href="#how" class="btn btn-ghost" data-i18n="hero.cta2">How it works</a>
+          </div>
+          <ul class="hero-stats">
+            <li><strong>1–2h</strong><span data-i18n="hero.stat1">Delivery anywhere in Dar es Salaam</span></li>
+            <li><strong>0</strong><span data-i18n="hero.stat2">Security deposit — ID check only</span></li>
+            <li><strong>TZS 15,000</strong><span data-i18n="hero.stat3">Night package, per night</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="hero-dots" id="heroDots"></div>
+    </section>
+
+    <!-- PACKAGES -->
+    <section id="packages" class="section">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-pill" data-i18n="packages.pill">Rental plans</p>
+          <h2 class="section-title" data-i18n="packages.title">Rental packages</h2>
+          <p class="section-sub" data-i18n="packages.sub">Every package includes 1 PS5 console and 2 DualSense controllers, pre-installed and set up at your door. Weekend and Night rentals include up to 5 games of your choice; the Starter arrives with 5 popular titles pre-loaded.</p>
+        </div>
+        <div class="pkg-grid">
+          <article class="pkg-card" data-pkg="starter">
+            <h3 data-i18n="pkg1.name">Starter Package</h3>
+            <p class="pkg-desc" data-i18n="pkg1.desc">Flexible day rentals with multi-day discounts.</p>
+            <p class="pkg-price"><span class="amount">TZS 25,000</span><span class="per" data-i18n="pkg.perDay">/ day</span></p>
+            <ul class="pkg-feats">
+              <li data-i18n="pkg1.f1">1 PS5 console</li>
+              <li data-i18n="pkg1.f2">2 DualSense controllers</li>
+              <li data-i18n="pkg1.f3">5 popular games pre-installed</li>
+              <li data-i18n="pkg1.f4">Multi-day discounts with free delivery</li>
+            </ul>
+            <button class="btn btn-outline pkg-select" type="button" data-select="starter" data-i18n="pkg.select">Rent this</button>
+          </article>
+          <article class="pkg-card pkg-featured" data-pkg="weekend">
+            <p class="pkg-tag" data-i18n="pkg.popular">Best value</p>
+            <h3 data-i18n="pkg2.name">Weekend Package</h3>
+            <p class="pkg-desc" data-i18n="pkg2.desc">Friday to Sunday at a fixed price, delivered free.</p>
+            <p class="pkg-price"><span class="amount">TZS 50,000</span><span class="per" data-i18n="pkg.perWeekend">/ weekend</span></p>
+            <ul class="pkg-feats">
+              <li data-i18n="pkg2.f1">1 PS5 console + 2 DualSense controllers</li>
+              <li data-i18n="pkg2.f2">Up to 5 games of your choice</li>
+              <li data-i18n="pkg2.f3">Free delivery and pickup</li>
+              <li data-i18n="pkg2.f4">Ideal for family weekends</li>
+            </ul>
+            <button class="btn btn-primary pkg-select" type="button" data-select="weekend" data-i18n="pkg.select">Rent this</button>
+          </article>
+          <article class="pkg-card" data-pkg="night">
+            <h3 data-i18n="pkg3.name">Night Package</h3>
+            <p class="pkg-desc" data-i18n="pkg3.desc">Overnight sessions, delivered at 8:00 PM.</p>
+            <p class="pkg-price"><span class="amount">TZS 15,000</span><span class="per" data-i18n="pkg.perNight">/ night</span></p>
+            <ul class="pkg-feats">
+              <li data-i18n="pkg3.f1">1 PS5 console + 2 DualSense controllers</li>
+              <li data-i18n="pkg3.f2">Up to 5 games of your choice</li>
+              <li data-i18n="pkg3.f3">8:00 PM to 10:00 AM overnight</li>
+              <li data-i18n="pkg3.f4">Perfect for late-night gaming sessions</li>
+            </ul>
+            <button class="btn btn-outline pkg-select" type="button" data-select="night" data-i18n="pkg.select">Rent this</button>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- BOOKING -->
+    <section id="book" class="section section-alt">
+      <div class="container">
+        <h2 class="section-title" data-i18n="book.title">Build your rental</h2>
+        <p class="section-sub" data-i18n="book.sub">Pick your package, schedule and area — we confirm availability within 30 minutes.</p>
+
+        <div class="book-layout">
+          <form id="bookingForm" class="book-form" novalidate>
+            <fieldset>
+              <legend data-i18n="book.step1">1 · Choose package</legend>
+              <div class="radio-cards" role="radiogroup" aria-label="Packages">
+                <label class="radio-card"><input type="radio" name="pkg" value="starter" /><span><strong data-i18n="pkg1.name">Starter Package</strong><em>TZS 25,000<span data-i18n="pkg.perDayShort">/day</span></em></span></label>
+                <label class="radio-card"><input type="radio" name="pkg" value="weekend" /><span><strong data-i18n="pkg2.name">Weekend Package</strong><em>TZS 50,000<span data-i18n="pkg.perWeekendShort">/weekend</span></em></span></label>
+                <label class="radio-card"><input type="radio" name="pkg" value="night" /><span><strong data-i18n="pkg3.name">Night Package</strong><em>TZS 15,000<span data-i18n="pkg.perNightShort">/night</span></em></span></label>
+              </div>
+              <small class="field-error" id="pkgError" hidden data-i18n="book.pkgErr">Please choose a package.</small>
+            </fieldset>
+
+            <fieldset>
+              <legend data-i18n="book.step2">2 · Duration &amp; schedule</legend>
+              <div id="durationBlock">
+                <div class="duration-chips" role="group" aria-label="Quick durations">
+                  <button type="button" class="chip is-active" data-days="1" data-i18n="book.d1">1 day</button>
+                  <button type="button" class="chip" data-days="2" data-i18n="book.d2">2 days</button>
+                  <button type="button" class="chip" data-days="3" data-i18n="book.d3">3 days</button>
+                  <button type="button" class="chip" data-days="4" data-i18n="book.d4">4 days</button>
+                  <button type="button" class="chip" data-days="5" data-i18n="book.d5">5+ days</button>
+                </div>
+                <label class="field">
+                  <span id="daysLabel" data-i18n="book.customDays">Number of days</span>
+                  <input type="number" id="daysInput" name="days" min="1" max="30" value="1" />
+                </label>
+              </div>
+              <p id="weekendNote" class="duration-note" hidden data-i18n="book.weekendNote">The Weekend Package covers Friday to Sunday at a fixed TZS 50,000, with free delivery and pickup.</p>
+              <p id="nightNote" class="duration-note" hidden data-i18n="book.nightNote">Each night runs from 8:00 PM to 10:00 AM the next morning, at TZS 15,000 per night.</p>
+              <div class="field-row">
+                <label class="field">
+                  <span data-i18n="book.date">Booking date</span>
+                  <input type="date" id="dateInput" name="date" required />
+                </label>
+                <label class="field">
+                  <span data-i18n="book.time">Delivery time</span>
+                  <input type="time" id="timeInput" name="time" required />
+                </label>
+              </div>
+              <small class="field-error" id="scheduleError" hidden data-i18n="book.scheduleErr">Please choose a booking date and delivery time.</small>
+            </fieldset>
+
+            <fieldset>
+              <legend data-i18n="book.step3">3 · Delivery location</legend>
+              <label class="field">
+                <span data-i18n="book.zone">Your area in Dar es Salaam</span>
+                <select id="zoneSelect" name="zone">
+                  <option value="goba" selected data-i18n="zone.goba">Goba / Kimara / Ubungo — TZS 6,000</option>
+                  <option value="sinza" data-i18n="zone.sinza">Sinza / Mwenge / Makumbusho / Kijitonyama — TZS 8,000</option>
+                  <option value="mbezi" data-i18n="zone.mbezi">Mbezi Beach / Kawe / Tegeta — TZS 8,000</option>
+                  <option value="kigamboni" data-i18n="zone.kigamboni">Kigamboni — TZS 10,000</option>
+                  <option value="magomeni" data-i18n="zone.magomeni">Magomeni / Kariakoo / Kinondoni / Morocco — TZS 10,000</option>
+                  <option value="oyster" data-i18n="zone.oyster">Oyster Bay / Mikocheni / Masaki — TZS 10,000</option>
+                  <option value="other" data-i18n="zone.other">Other area (not listed)</option>
+                </select>
+              </label>
+              <p id="zoneNote" class="duration-note" hidden data-i18n="book.zoneNote">Your area is not listed — the delivery fee will be agreed with the rider when we confirm your booking.</p>
+              <label class="field">
+                <span data-i18n="book.address">Street / landmark</span>
+                <input type="text" id="addressInput" name="address" required data-i18n-placeholder="book.addressPh" placeholder="e.g. Sinza, near Shabibi supermarket" />
+                <small class="field-error" id="addressError" hidden data-i18n="book.addressErr">Please enter your street or landmark.</small>
+              </label>
+            </fieldset>
+
+            <fieldset>
+              <legend data-i18n="book.step4">4 · Your details</legend>
+              <label class="field">
+                <span data-i18n="book.name">Full name</span>
+                <input type="text" id="nameInput" name="name" required autocomplete="name" data-i18n-placeholder="book.namePh" placeholder="e.g. Amina Juma" />
+                <small class="field-error" id="nameError" hidden data-i18n="book.nameErr">Please enter your name.</small>
+              </label>
+              <label class="field">
+                <span data-i18n="book.phone">Phone (M-Pesa &amp; WhatsApp)</span>
+                <input type="tel" id="phoneInput" name="phone" required autocomplete="tel" inputmode="tel" data-i18n-placeholder="book.phonePh" placeholder="07XX XXX XXX or +2557XXXXXXXX" />
+                <small class="field-error" id="phoneError" hidden data-i18n="book.phoneErr">Enter a valid Tanzanian number (e.g. 0712345678).</small>
+              </label>
+            </fieldset>
+
+            <fieldset>
+              <legend data-i18n="book.step5">5 · ID check &amp; emergency contact</legend>
+              <div class="field-row">
+                <label class="field">
+                  <span data-i18n="book.idType">ID type (KYC)</span>
+                  <select id="idTypeSelect" name="idType">
+                    <option value="nida" selected data-i18n="id.nida">NIDA ID</option>
+                    <option value="licence" data-i18n="id.licence">Driver's licence</option>
+                    <option value="passport" data-i18n="id.passport">Passport</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span data-i18n="book.idNumber">ID number</span>
+                  <input type="text" id="idNumberInput" name="idNumber" required data-i18n-placeholder="book.idNumberPh" placeholder="e.g. 19900101-12345-67890-12" />
+                  <small class="field-error" id="idError" hidden data-i18n="book.idErr">Enter your ID number.</small>
+                </label>
+              </div>
+              <div class="field-row">
+                <label class="field">
+                  <span data-i18n="book.ecName">Emergency contact name</span>
+                  <input type="text" id="ecNameInput" name="ecName" required data-i18n-placeholder="book.ecNamePh" placeholder="e.g. Juma Hassan" />
+                  <small class="field-error" id="ecNameError" hidden data-i18n="book.ecNameErr">Please enter an emergency contact name.</small>
+                </label>
+                <label class="field">
+                  <span data-i18n="book.ecPhone">Emergency contact phone</span>
+                  <input type="tel" id="ecPhoneInput" name="ecPhone" required inputmode="tel" data-i18n-placeholder="book.phonePh" placeholder="07XX XXX XXX or +2557XXXXXXXX" />
+                  <small class="field-error" id="ecPhoneError" hidden data-i18n="book.phoneErr">Enter a valid Tanzanian number (e.g. 0712345678).</small>
+                </label>
+              </div>
+              <p class="duration-note" data-i18n="book.kycNote">We verify your ID at delivery and return it with the console. No deposit is required.</p>
+            </fieldset>
+
+            <fieldset>
+              <legend data-i18n="book.step6">6 · Payment method</legend>
+              <div class="radio-cards two" role="radiogroup" aria-label="Payment method">
+                <label class="radio-card"><input type="radio" name="pay" value="mpesa" checked /><span><strong data-i18n="pay.mpesa">M-Pesa after confirmation</strong><em data-i18n="pay.mpesaSub">We send the Lipa number once confirmed</em></span></label>
+                <label class="radio-card"><input type="radio" name="pay" value="cod" /><span><strong data-i18n="pay.cod">Pay on delivery</strong><em data-i18n="pay.codSub">Cash or M-Pesa to the rider</em></span></label>
+              </div>
+            </fieldset>
+
+            <button type="submit" class="btn btn-primary btn-lg" data-i18n="book.submit">Confirm booking request</button>
+            <p class="form-note" data-i18n="book.note">No payment now — we confirm availability first, then you pay your way.</p>
+          </form>
+
+          <aside class="summary" aria-live="polite">
+            <h3 data-i18n="sum.title">Your rental</h3>
+            <dl class="sum-lines">
+              <div><dt data-i18n="sum.package">Package</dt><dd id="sumPkg">—</dd></div>
+              <div><dt data-i18n="sum.duration">Duration</dt><dd id="sumDays">—</dd></div>
+              <div><dt data-i18n="sum.schedule">Schedule</dt><dd id="sumSchedule">—</dd></div>
+              <div><dt data-i18n="sum.rental">Rental cost</dt><dd id="sumRental">—</dd></div>
+              <div id="sumDiscountRow" hidden><dt data-i18n="sum.discount">Discount</dt><dd id="sumDiscount" class="text-green">—</dd></div>
+              <div><dt data-i18n="sum.delivery">Delivery (round trip)</dt><dd id="sumDelivery">—</dd></div>
+            </dl>
+            <p class="sum-total"><span data-i18n="sum.total">Total due</span><strong id="sumTotal">—</strong></p>
+            <p class="sum-note" id="sumNote" hidden data-i18n="sum.tbdNote">Delivery fee for unlisted areas is agreed with the rider on confirmation and added to this total.</p>
+          </aside>
+        </div>
+
+        <!-- Confirmation -->
+        <div id="confirmPanel" class="confirm-panel" hidden>
+          <div class="confirm-head">
+            <span class="confirm-check" id="confCheck" aria-hidden="true">✓</span>
+            <h3 id="confTitle">Booking sent!</h3>
+          </div>
+          <p id="confSub">Your booking was sent to us automatically — we confirm within 30 minutes (8:00–22:00 EAT).</p>
+          <p class="conf-ref" id="confRefRow" hidden><span id="confRefLabel">Booking reference:</span> <strong id="confRef"></strong></p>
+          <pre id="confirmSummary" class="confirm-summary"></pre>
+          <div class="confirm-steps">
+            <h4 data-i18n="conf.stepsTitle">What happens next</h4>
+            <ol>
+              <li data-i18n="conf.s1">Tap the WhatsApp button below to send us your request — this is required so we can confirm your booking. We reply within 30 min (8:00–22:00 EAT).</li>
+              <li id="confPayMpesa" data-i18n="conf.s2mpesa">You pay via M-Pesa: dial *150*00#, choose Lipa kwa M-Pesa, and use the business number we send you.</li>
+              <li id="confPayCod" hidden data-i18n="conf.s2cod">You pay on delivery — cash or M-Pesa directly to the rider when the console arrives.</li>
+              <li data-i18n="conf.s3">We deliver and set up within 1–2 hours anywhere in Dar es Salaam, verify your ID, and pick up when your rental ends.</li>
+            </ol>
+          </div>
+          <div class="confirm-actions">
+            <button type="button" id="confRetry" class="btn btn-primary" hidden>Try sending again</button>
+            <a id="whatsappLink" class="btn btn-whatsapp" href="#" target="_blank" rel="noopener">Message us on WhatsApp to confirm your booking</a>
+            <span class="wa-required" data-i18n="conf.waRequired">Required</span>
+            <button type="button" id="backToForm" class="btn btn-ghost" data-i18n="conf.edit">Edit my booking</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GAMES -->
+    <section id="games" class="section">
+      <div class="container">
+        <h2 class="section-title" data-i18n="games.title">Games included</h2>
+        <p class="section-sub" data-i18n="games.sub">Every rental includes up to 5 games of your choice. Current library highlights — tell us your picks when booking.</p>
+        <ul class="games-grid">
+          <li>
+            <img src="assets/games/cod-mw3.jpg" alt="Call of Duty: Modern Warfare III cover art" loading="lazy" />
+            <div class="game-info"><strong>Call of Duty: Modern Warfare III</strong><span data-i18n="genre.shooter">Shooter</span></div>
+          </li>
+          <li>
+            <img src="assets/games/nba-2k27.jpg" alt="NBA 2K27 cover art" loading="lazy" />
+            <div class="game-info"><strong>NBA 2K27</strong><span data-i18n="genre.basketball">Basketball</span></div>
+          </li>
+          <li>
+            <img src="assets/games/ea-fc-27.jpg" alt="EA SPORTS FC 27 cover art" loading="lazy" />
+            <div class="game-info"><strong>EA SPORTS FC 27</strong><span data-i18n="genre.football">Football</span></div>
+          </li>
+          <li>
+            <img src="assets/games/gta-6.jpg" alt="GTA 6 cover art" loading="lazy" />
+            <div class="game-info"><strong>GTA 6</strong><span data-i18n="genre.action">Action</span></div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how" class="section section-alt">
+      <div class="container">
+        <h2 class="section-title" data-i18n="how.title">How it works</h2>
+        <ol class="steps-grid">
+          <li><span class="step-num" aria-hidden="true">1</span><h3 data-i18n="how.s1t">Build your rental</h3><p data-i18n="how.s1d">Choose a package, schedule and your area on this page.</p></li>
+          <li><span class="step-num" aria-hidden="true">2</span><h3 data-i18n="how.s2t">We confirm in 30 min</h3><p data-i18n="how.s2d">We call or WhatsApp you to lock in dates and availability.</p></li>
+          <li><span class="step-num" aria-hidden="true">3</span><h3 data-i18n="how.s3t">Pay your way</h3><p data-i18n="how.s3d">M-Pesa after confirmation, or cash / M-Pesa to the rider on delivery. No deposit.</p></li>
+          <li><span class="step-num" aria-hidden="true">4</span><h3 data-i18n="how.s4t">We deliver in 1–2 hours</h3><p data-i18n="how.s4d">Set up at your door anywhere in Dar es Salaam; we pick up when you're done.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- DELIVERY -->
+    <section id="delivery" class="section">
+      <div class="container">
+        <h2 class="section-title" data-i18n="del.title">Delivery areas &amp; fees</h2>
+        <p class="section-sub" data-i18n="del.sub">Dar es Salaam only — delivery and pickup within 1–2 hours. Fees cover the round trip; Starter rentals of 2+ days and the Weekend Package include free delivery.</p>
+        <div class="table-wrap">
+          <table class="zones-table">
+            <thead>
+              <tr><th data-i18n="del.th1">Area</th><th data-i18n="del.th2">Fee</th></tr>
+            </thead>
+            <tbody>
+              <tr><td data-i18n="del.goba">Goba / Kimara / Ubungo</td><td>TZS 6,000</td></tr>
+              <tr><td data-i18n="del.sinza">Sinza / Mwenge / Makumbusho / Kijitonyama</td><td>TZS 8,000</td></tr>
+              <tr><td data-i18n="del.mbezi">Mbezi Beach / Kawe / Tegeta</td><td>TZS 8,000</td></tr>
+              <tr><td data-i18n="del.kigamboni">Kigamboni</td><td>TZS 10,000</td></tr>
+              <tr><td data-i18n="del.magomeni">Magomeni / Kariakoo / Kinondoni / Morocco</td><td>TZS 10,000</td></tr>
+              <tr><td data-i18n="del.oyster">Oyster Bay / Mikocheni / Masaki</td><td>TZS 10,000</td></tr>
+              <tr><td data-i18n="del.other">Other areas in Dar es Salaam</td><td data-i18n="del.otherFee">Agreed with the rider</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="section section-alt">
+      <div class="container container-narrow">
+        <h2 class="section-title" data-i18n="faq.title">Frequently asked questions</h2>
+        <div class="faq-list">
+          <details>
+            <summary data-i18n="faq.q1">Do I need to pay a deposit?</summary>
+            <p data-i18n="faq.a1">No deposit at all. We verify your NIDA ID, driver's licence or passport at delivery, plus one emergency contact — that's our only security check.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q2">Which areas do you deliver to?</summary>
+            <p data-i18n="faq.a2">All of Dar es Salaam, within 1–2 hours. Listed areas have fixed round-trip fees; if your area is not listed we agree the fee with the rider when confirming.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q3">How does the Night Package work?</summary>
+            <p data-i18n="faq.a3">We deliver at 8:00 PM and collect at 10:00 AM the next morning — TZS 15,000 per night with the full Starter specs: console, 2 controllers and up to 5 games.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q4">Can I pay on delivery?</summary>
+            <p data-i18n="faq.a4">Yes — cash or M-Pesa directly to the rider when the console arrives. You can also pay by M-Pesa after we confirm your booking.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q5">What if the PS5 or a controller gets damaged?</summary>
+            <p data-i18n="faq.a5">Normal wear is fine. Real damage is charged at repair cost, and water damage or theft at replacement value — which is why we keep an ID and emergency contact on file.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q6">Can I extend my rental?</summary>
+            <p data-i18n="faq.a6">Yes — message us on WhatsApp before your rental ends and pay the extra days. Multi-day discounts still apply to the extended period.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img class="footer-logo" src="assets/logo.png" alt="Prime Games logo" width="2000" height="1300" />
+        <p class="footer-tag" data-i18n="footer.about">Premium PS5 console rentals in Dar es Salaam, Tanzania — next-gen entertainment delivered to your door.</p>
+      </div>
+      <nav class="footer-col" aria-label="Quick links">
+        <h4 data-i18n="footer.links">Quick links</h4>
+        <a href="#packages" data-i18n="nav.packages">Packages</a>
+        <a href="#book" data-i18n="nav.book">Book</a>
+        <a href="#games" data-i18n="nav.games">Games</a>
+        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+        <a href="/app/index.html" data-i18n="nav.account">My account</a>
+        <a href="/app/index.html#/admin" data-i18n="nav.admin">Admin</a>
+      </nav>
+      <div class="footer-col">
+        <h4 data-i18n="footer.hub">Find us</h4>
+        <p data-i18n="footer.loc">Mbezi Luis, Dar es Salaam, Tanzania</p>
+        <p data-i18n="footer.hours">Pickup hours: 08:00 – 23:00</p>
+        <p><a href="tel:+255613138426">+255 613 138 426</a></p>
+        <p><a href="https://instagram.com/primegames.tz" target="_blank" rel="noopener">@primegames.tz</a></p>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p data-i18n="footer.copy">© 2026 Prime Games. All rights reserved. Dar es Salaam, Tanzania.</p>
+      <div class="footer-social">
+        <a href="https://instagram.com/primegames.tz" target="_blank" rel="noopener" aria-label="Prime Games on Instagram">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="7.2" r="1.1" fill="currentColor" stroke="none"/></svg>
+        </a>
+        <a href="https://wa.me/255613138426" target="_blank" rel="noopener" aria-label="Prime Games on WhatsApp">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20Zm4.4-5.6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1a6.5 6.5 0 0 1-3.2-2.8c-.2-.4 0-.5.1-.6l.4-.5c.1-.1.2-.3.3-.4.1-.2 0-.4 0-.5l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.9.9-1.1 2.2-.3 3.6a12 12 0 0 0 4.6 4.3c1.7.7 2.4.8 3.2.7.5-.1 1.4-.6 1.6-1.2.2-.6.2-1.1.1-1.2 0-.1-.2-.2-.4-.3Z"/></svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

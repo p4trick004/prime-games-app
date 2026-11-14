@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prime Games — Admin</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="index.html" aria-label="Prime Games home">
+        <img src="assets/logo.png" alt="Prime Games logo" width="2000" height="1300" />
+      </a>
+      <div class="header-actions">
+        <span class="admin-badge">Admin</span>
+        <a href="index.html" class="btn btn-ghost btn-sm">View site</a>
+        <button id="logoutBtn" type="button" class="btn btn-ghost btn-sm" hidden>Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-main container">
+    <section id="loginView" class="admin-login" hidden>
+      <form id="loginForm" class="admin-login-card">
+        <h1>Admin sign in</h1>
+        <p>Enter the business admin password to manage bookings, rentals and payments.</p>
+        <label for="adminPassword">Password</label>
+        <input id="adminPassword" type="password" autocomplete="current-password" required />
+        <p id="loginError" class="admin-error" role="alert" hidden></p>
+        <button type="submit" class="btn btn-primary" id="loginBtn">Sign in</button>
+      </form>
+    </section>
+
+    <section id="appView" hidden>
+      <div id="statsRow" class="admin-stats"></div>
+
+      <nav class="admin-tabs" aria-label="Admin sections">
+        <button type="button" id="tabBookings" class="admin-tab active">Bookings</button>
+        <button type="button" id="tabCustomers" class="admin-tab">Customers</button>
+      </nav>
+
+      <section id="bookingsPane" aria-label="Bookings">
+        <div id="statusFilters" class="admin-filters"></div>
+        <div id="bookingsList" class="admin-bookings"></div>
+        <p id="bookingsEmpty" class="admin-empty" hidden>No bookings yet — new website bookings appear here automatically.</p>
+        <button type="button" id="loadMoreBtn" class="btn btn-ghost btn-sm" hidden>Load more</button>
+      </section>
+
+      <section id="customersPane" aria-label="Customers" hidden>
+        <div id="customersWrap" class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th>Name</th><th>Phone</th><th>Area</th><th>Bookings</th><th>Open</th><th>Paid spend</th><th>Last booking</th></tr>
+            </thead>
+            <tbody id="customersBody"></tbody>
+          </table>
+        </div>
+        <p id="customersEmpty" class="admin-empty" hidden>No customers yet.</p>
+      </section>
+    </section>
+
+    <p id="adminFatal" class="admin-error" role="alert" hidden></p>
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+</html>
