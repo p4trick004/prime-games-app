@@ -1,0 +1,53 @@
+{
+  "purpose": "Pre-migration metadata snapshot of the TARGET Supabase project, captured before applying the Phase 3 customer-centred business schema. Read-only inspection via the public anon (publishable) key; no secret credentials used.",
+  "captured_at": "2026-11-14",
+  "target_project_ref": "poaxanthiifatydqbnqq",
+  "target_url": "https://poaxanthiifatydqbnqq.supabase.co",
+  "project_liveness": {
+    "endpoint": "/auth/v1/health",
+    "http_status": 200,
+    "gotrue_version": "v2.197.0"
+  },
+  "inspection_method": "PostgREST per-table GET probes with the public publishable key. HTTP 404 + PGRST205 = table absent from schema cache; HTTP 200 = table present (RLS may return an empty array). The OpenAPI root (/rest/v1/) requires a secret key and was NOT used.",
+  "public_tables_present": {
+    "profiles": {
+      "http_status": 200,
+      "anon_body": "[]",
+      "note": "EXISTS and UNCHANGED. RLS blocks anon reads (empty array). Authoritative applied DDL is supabase/profiles.sql. Must NOT be modified by Phase 3."
+    }
+  },
+  "public_tables_absent": [
+    "customers",
+    "customer_links",
+    "customer_contact_history",
+    "customer_credit_events",
+    "bookings",
+    "booking_games",
+    "rentals",
+    "payments",
+    "consoles",
+    "games",
+    "maintenance",
+    "incidents",
+    "kyc_documents",
+    "kyc_audit",
+    "transactions"
+  ],
+  "conflict_assessment": "NONE. All 14 target business tables are absent. The legacy 'transactions' table is also absent, confirming the superseded 6-table migration (commit bf1e6da) was NEVER applied. The target public schema contains only 'profiles'. No destructive operation or schema conflict exists; Phase 3 is purely additive.",
+  "auth_and_profiles": "auth.users and public.profiles are preserved untouched. Phase 3 adds a nullable customers.auth_user_id FK referencing auth.users(id) ON DELETE SET NULL; it does not alter auth.users, profiles, or the handle_new_user trigger.",
+  "original_qoder_database": "The source Qoder-managed database (6 business tables, 17 records) is the backup and is NOT modified by Phase 3. The new business schema starts EMPTY (no import of the 17 records).",
+  "execution_path": {
+    "supabase_mcp": "disconnected/removed",
+    "supabase_cli": "not installed",
+    "psql": "not installed",
+    "docker": "not installed",
+    "service_role_key": "not available to agent",
+    "db_password": "not available to agent",
+    "apply_channel": "User runs the ordered SQL in Supabase Dashboard -> SQL Editor (established workflow, same as profiles.sql). Agent verifies results via read-only anon REST probes and user-run validation scripts."
+  },
+  "backup_artifacts": [
+    "supabase/backup/pre-migration-state.json (this file)",
+    "supabase/backup/0000_backup_metadata.sql (read-only pg_catalog export for the user to run and save BEFORE applying migrations)",
+    "supabase/profiles.sql (authoritative applied profiles DDL, version-controlled)"
+  ]
+}
