@@ -115,7 +115,14 @@ export interface Booking {
   created_at: string;
 }
 
+export type CustomerTier = "basic" | "standard" | "premium";
+export type CustomerStatus = "active" | "suspended" | "blacklisted";
+export type RentalStatus = "scheduled" | "active" | "returned" | "overdue" | "cancelled";
+export type LinkStatus = "pending" | "linked" | "rejected" | "conflict";
+export type KycDocStatus = "pending" | "verified" | "rejected" | "expired";
+
 export interface CustomerAgg {
+  id: string;
   name: string;
   phone: string;
   zone_key: string;
@@ -123,6 +130,66 @@ export interface CustomerAgg {
   spend: number;
   open: number;
   last_at: string;
+  email: string | null;
+  customer_tier: CustomerTier;
+  credit_limit: number;
+  customer_status: CustomerStatus;
+  auth_user_id: string | null;
+  outstanding: number;
+}
+
+export interface Rental {
+  id: string;
+  booking_id: string;
+  customer_id: string;
+  console_id: string | null;
+  status: RentalStatus;
+  start_at: string | null;
+  expected_return_at: string | null;
+  actual_return_at: string | null;
+  condition_out: string | null;
+  condition_in: string | null;
+  late_fee: number | null;
+  notes: string | null;
+  created_at: string;
+  customer_name: string;
+  customer_phone: string | null;
+  booking_ref: string | null;
+  package_key: string | null;
+  days: number | null;
+  unit_code: string | null;
+}
+
+export interface CustomerLink {
+  id: string;
+  customer_id: string;
+  auth_user_id: string;
+  link_method: string;
+  verified: boolean;
+  evidence: string | null;
+  status: LinkStatus;
+  resolved_at: string | null;
+  created_at: string;
+  customer_name: string;
+  customer_phone: string | null;
+}
+
+export interface KycDocument {
+  id: string;
+  customer_id: string;
+  doc_type: string;
+  storage_path: string;
+  file_name: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  id_number_masked: string | null;
+  verification_status: KycDocStatus;
+  verified_by: string | null;
+  verified_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  customer_name: string;
+  customer_phone: string | null;
 }
 
 export interface AdminStats {

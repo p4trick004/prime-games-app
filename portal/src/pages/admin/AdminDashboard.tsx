@@ -97,7 +97,7 @@ export function AdminDashboard() {
     }
     const risk: { name: string; reason: string; state: string; tone: Tone }[] = [];
     for (const [name, v] of byCustomer) {
-      risk.push({ name, reason: `Overdue balance: ${fmtTZS(v.sum)}`, state: v.maxAge > 7 ? "HIGH" : "MEDIUM", tone: v.maxAge > 7 ? "red" : "gold" });
+      risk.push({ name, reason: `Unpaid bookings: ${fmtTZS(v.sum)}`, state: v.maxAge > 7 ? "HIGH" : "MEDIUM", tone: v.maxAge > 7 ? "red" : "gold" });
     }
     for (const inc of d.incidents) {
       if (inc.status === "resolved" || inc.status === "waived") continue;
@@ -139,7 +139,7 @@ export function AdminDashboard() {
         <StatCard label="Available PS5s" value={`${s.consoles_available} / ${s.consoles_total}`} sub="Ready for dispatch" tone="green" />
         <StatCard label="PS5s rented" value={s.consoles_rented} sub="Generating revenue" tone="cyan" />
         <StatCard label="In maintenance" value={s.consoles_maintenance} sub="Awaiting clearance" tone="gold" alert />
-        <StatCard label="Outstanding" value={fmtTZS(s.outstanding)} sub={`${s.unpaid} unpaid bookings`} tone={s.outstanding > 0 ? "red" : "green"} />
+        <StatCard label="Outstanding debt" value={fmtTZS(s.outstanding)} sub="Model C — incurred obligations" tone={s.outstanding > 0 ? "red" : "green"} />
       </div>
 
       <div className="dash-grid">
@@ -152,7 +152,7 @@ export function AdminDashboard() {
 
         <div className="card">
           <div className="adm-section" style={{ margin: "0 0 12px" }}>
-            <div><h2>Outstanding Balances</h2><span className="hint">Unpaid bookings by age</span></div>
+            <div><h2>Unpaid Bookings (Commitments)</h2><span className="hint">Future bookings by age — not debt until incurred</span></div>
           </div>
           <div style={{ font: "700 1.6rem var(--font-mono)", color: "var(--gold)", marginBottom: 4 }}>{fmtTZS(s.outstanding)}</div>
           <div className="aging" style={{ marginTop: 14 }}>
@@ -170,10 +170,10 @@ export function AdminDashboard() {
       <div className="dash-grid">
         <div className="card">
           <div className="adm-section" style={{ margin: "0 0 12px" }}>
-            <div><h2>Customer Risk Registry</h2><span className="hint">Overdue balances and open incidents</span></div>
+            <div><h2>Customer Risk Registry</h2><span className="hint">Unpaid booking commitments and open incidents</span></div>
           </div>
           {derived.risk.length === 0 ? (
-            <div className="empty"><strong>No active risk</strong>No overdue balances or open incidents right now.</div>
+            <div className="empty"><strong>No active risk</strong>No unpaid bookings or open incidents right now.</div>
           ) : (
             <div className="table-wrap" style={{ border: 0 }}>
               <table className="data" style={{ minWidth: 0 }}>

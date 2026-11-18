@@ -1,40 +1,38 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { useMyBookings, STATUS_LABEL, type Booking } from "../lib/bookings";
+import { useCustomer } from "../lib/customer";
+import { useMyBookings, STATUS_LABEL } from "../lib/bookings";
+import { useMyRentals } from "../lib/rentals";
+import { useMyPayments } from "../lib/payments";
 import { PACKAGE_META } from "../lib/pricing";
-import { fmtTZS, fmtDateShort, fmtTime, returnDateTime } from "../lib/format";
+import { fmtTZS, fmtDateShort, fmtTime } from "../lib/format";
+import { fmtStamp } from "../lib/adminLabels";
 import { WHATSAPP_NUMBER } from "../config";
 import { StatCard, Badge, Countdown, Spinner, Empty, Ic } from "../components/ui";
 
-function activeRental(bookings: Booking[]): Booking | null {
-  const now = Date.now();
-  return bookings.find((b) =>
-    (b.status === "delivered" || b.status === "confirmed") &&
-    returnDateTime(b.start_date, b.start_time, b.days, b.package_key).getTime() > now,
-  ) ?? null;
-}
-
 export function Dashboard() {
   const { profile } = useAuth();
+  const { customer, linkPending } = useCustomer();
   const { bookings, error } = useMyBookings();
+  const { rentals } = useMyRentals();
+  const { outstanding } = useMyPayments();
 
-  if (!bookings) return <Spinner />;
+  if (!bookings || !rentals) return <Spinner />;
 
-  const active = activeRental(bookings);
+  const active = rentals.find((r) => r.status === "active" || r.status === "overdue") ?? null;
   const next = bookings
     .filter((b) => b.status === "pending" || b.status === "confirmed")
     .sort((a, b) => a.start_date.localeCompare(b.start_date))[0] ?? null;
-  const outstanding = bookings
-    .filter((b) => b.payment_status === "unpaid" && b.status !== "cancelled")
-    .reduce((s, b) => s + b.total, 0);
+  const debt = outstanding ?? 0;
   const updates = [...bookings].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 4);
   const firstName = (profile?.full_name ?? "Member").split(/\s+/)[0];
+  const premium = customer?.customer_tier === "premium";
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Welcome back, {firstName} {profile?.tier === "premium" ? <Badge tone="gold">★ PREMIUM MEMBER</Badge> : <Badge tone="cyan">STANDARD</Badge>}</h1>
+          <h1>Welcome back, {firstName} {premium ? <Badge tone="gold">★ PREMIUM MEMBER</Badge> : <Badge tone="cyan">STANDARD</Badge>}</h1>
           <p>Here's a breakdown of your membership status and current active rentals.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -44,21 +42,32 @@ export function Dashboard() {
 
       {error ? <div className="banner warn"><span className="ico">!</span><p className="grow">We couldn't load your bookings ({error}). <button className="btn btn-ghost btn-sm" type="button" onClick={() => window.location.reload()}>Retry</button></p></div> : null}
 
+      {linkPending ? (
+        <div className="banner gold">
+          <span className="ico">🔗</span>
+          <p className="grow"><strong>Guest history link pending.</strong> We found bookings under your phone number — our team will verify and attach them to your account shortly.</p>
+        </div>
+      ) : null}
+
       <div className="grid two">
         <div className="card" style={active ? { borderColor: "rgba(34,217,238,.55)" } : undefined}>
           {active ? (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                 <div>
-                  <h3>{PACKAGE_META[active.package_key].name} <Badge tone="cyan">ACTIVE</Badge></h3>
+                  <h3>{active.unit_code ?? "PS5"} <Badge tone={active.status === "overdue" ? "red" : "cyan"}>{active.status === "overdue" ? "OVERDUE" : "ACTIVE"}</Badge></h3>
                   <p style={{ color: "var(--dim)", margin: "6px 0 0", fontSize: ".88rem" }}>
-                    {active.ref} · {fmtDateShort(active.start_date)} · {fmtTime(active.start_time)} · {active.days} {active.package_key === "night" ? "night(s)" : "day(s)"}
+                    {active.booking_ref} · out since {fmtStamp(active.start_at)}
                   </p>
                 </div>
                 <Link to="/rentals" className="btn btn-primary btn-sm">Return info</Link>
               </div>
-              <p style={{ font: "600 10px var(--font-mono)", letterSpacing: ".18em", color: "var(--dim)", margin: "20px 0 10px" }}>TIME REMAINING TO RETURN</p>
-              <Countdown to={returnDateTime(active.start_date, active.start_time, active.days, active.package_key)} />
+              {active.expected_return_at ? (
+                <>
+                  <p style={{ font: "600 10px var(--font-mono)", letterSpacing: ".18em", color: "var(--dim)", margin: "20px 0 10px" }}>TIME REMAINING TO RETURN</p>
+                  <Countdown to={new Date(active.expected_return_at)} />
+                </>
+              ) : null}
             </>
           ) : (
             <Empty title="No active rental right now">
@@ -70,12 +79,12 @@ export function Dashboard() {
 
         <div className="grid" style={{ gap: 12 }}>
           <StatCard label="Next booking" value={next ? fmtDateShort(next.start_date) : "—"} sub={next ? `${PACKAGE_META[next.package_key].name} · ${fmtTime(next.start_time)}` : "Nothing scheduled"} />
-          {outstanding > 0
-            ? <StatCard label="Balance due" value={fmtTZS(outstanding)} tone="gold" sub="Settle via M-Pesa or on delivery" alert />
+          {debt > 0
+            ? <StatCard label="Balance due" value={fmtTZS(debt)} tone="gold" sub="Incurred debt — settle via M-Pesa or on delivery" alert />
             : <StatCard label="Balance due" value={fmtTZS(0)} tone="green" sub="All settled — asante!" />}
-          {profile?.tier === "premium"
-            ? <StatCard label="Premium credit limit" value={fmtTZS(200000)} sub="Interest-free rental credit active" />
-            : <StatCard label="Membership" value="STANDARD" sub="Upgrade for credit, free deliveries & priority" />}
+          {premium
+            ? <StatCard label="Premium credit limit" value={fmtTZS(customer?.credit_limit ?? 0)} sub="Interest-free rental credit active" />
+            : <StatCard label="Membership" value="STANDARD" sub="Full payment before handover · upgrade for credit" />}
         </div>
       </div>
 

@@ -199,7 +199,7 @@ begin
   values ('T5-PS5', 'PS5 Slim Disc', 'available', 'excellent') returning id into con;
   insert into public.bookings (ref, customer_id, zone_key, address, package_key, days,
     start_date, start_time, id_type, id_number, ec_name, ec_phone, payment_method,
-    rental_amount, discount, delivery_fee, total)
+    rental_amount, discount, delivery_fee, total, status, payment_status)
   values ('PG-T5A', c, 'sinza', 'Sinza Test', 'starter', 2, '2026-12-01', '10:00',
     'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 50000, 0, 0, 50000, 'delivered', 'unpaid')
   returning id into b1;
@@ -392,8 +392,8 @@ do $$
 declare c uuid; c2 uuid; con uuid; b uuid; r uuid; n int; net int;
 begin
   -- resolve_guest_customer reuses ONE guest identity per phone (advisory lock).
-  c := public.resolve_guest_customer('255700000012', 'Race Guest', 'guest').id;
-  c2 := public.resolve_guest_customer('255700000012', 'Race Guest', 'guest').id;
+  c := (public.resolve_guest_customer('255700000012', 'Race Guest', 'guest')).id;
+  c2 := (public.resolve_guest_customer('255700000012', 'Race Guest', 'guest')).id;
   if c <> c2 then raise exception 'TEST 12 FAILED: guest identity duplicated'; end if;
   select count(*) into n from public.customers where phone = '255700000012';
   if n <> 1 then raise exception 'TEST 12 FAILED: % guests for one phone', n; end if;
@@ -414,7 +414,7 @@ begin
   if n <> 1 then raise exception 'TEST 12 FAILED: % receipts after double settle', n; end if;
 
   -- atomic handover: rental active + console rented + booking delivered.
-  r := public.handover_rental(b, con, now(), now() + interval '1 day', 'good', null, 'admin').id;
+  r := (public.handover_rental(b, con, now(), now() + interval '1 day', 'good', null, 'admin')).id;
   if (select status from public.rentals where id = r) <> 'active' then
     raise exception 'TEST 12 FAILED: handover rental not active'; end if;
   if (select status from public.consoles where id = con) <> 'rented' then

@@ -3,10 +3,11 @@ import { adminApi } from "../../lib/adminApi";
 import type { AdminStats, ConsoleUnit, MaintenanceRecord } from "../../lib/adminTypes";
 import {
   CONDITION_LABEL, CONDITION_TONE, CONSOLE_STATUS_LABEL, CONSOLE_STATUS_TONE,
-  MAINT_STATUS_TONE, PRIORITY_TONE, fmtDay, titleCase,
+  MAINT_STATUS_TONE, PRIORITY_TONE, PS5_MODELS, fmtDay, titleCase,
 } from "../../lib/adminLabels";
 import { Badge, Ic, StatCard } from "../../components/ui";
 import { Field, Modal, pingAlerts, useAsync, useToast } from "../../components/admin/AdminUi";
+import { fmtTZS } from "../../lib/format";
 
 const FLEET_IMG = "/assets/ps5-hero.jpg";
 const STATUS_OPTIONS = ["available", "rented", "maintenance", "retired"] as const;
@@ -45,16 +46,116 @@ function TechLogsModal({ unit, onClose }: { unit: ConsoleUnit; onClose: () => vo
   );
 }
 
+function EditConsoleModal({ unit, onClose, onSaved }: { unit: ConsoleUnit; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [model, setModel] = useState(unit.model);
+  const [serial, setSerial] = useState(unit.serial_number ?? "");
+  const [status, setStatus] = useState(unit.status);
+  const [condition, setCondition] = useState(unit.condition_grade);
+  const [notes, setNotes] = useState(unit.notes ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    try {
+      await adminApi("admin_console_update", {
+        method: "POST",
+        body: {
+          id: unit.id, model, serial_number: serial.trim() || null,
+          status, condition_grade: condition, notes: notes.trim() || null,
+        },
+      });
+      toast(`${unit.unit_code} updated.`);
+      onSaved(); onClose();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Update failed.", "err");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const modelOptions = PS5_MODELS.includes(model as (typeof PS5_MODELS)[number]) ? [...PS5_MODELS] : [model, ...PS5_MODELS];
+  return (
+    <Modal open title={`Edit — ${unit.unit_code}`} sub="Unit code is permanent; everything else is audited." onClose={onClose}
+      footer={<>
+        <button className="btn btn-ghost" type="button" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" type="button" onClick={submit} disabled={busy || model.trim().length < 2}>{busy ? "Saving…" : "Save changes"}</button>
+      </>}>
+      <div className="field-row">
+        <Field label="Model">
+          <select value={model} onChange={(e) => setModel(e.target.value)}>
+            {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </Field>
+        <Field label="Serial number"><input value={serial} onChange={(e) => setSerial(e.target.value)} placeholder="FC348821990" /></Field>
+      </div>
+      <div className="field-row">
+        <Field label="Status">
+          <select value={status} onChange={(e) => setStatus(e.target.value as ConsoleUnit["status"])}>
+            {STATUS_OPTIONS.map((o) => <option key={o} value={o}>{CONSOLE_STATUS_LABEL[o]}</option>)}
+          </select>
+        </Field>
+        <Field label="Condition">
+          <select value={condition} onChange={(e) => setCondition(e.target.value as ConsoleUnit["condition_grade"])}>
+            {CONDITION_OPTIONS.map((o) => <option key={o} value={o}>{CONDITION_LABEL[o]}</option>)}
+          </select>
+        </Field>
+      </div>
+      <Field label="Notes"><input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Purchase batch, accessories, quirks…" /></Field>
+    </Modal>
+  );
+}
+
+function ResolveModal({ record, onClose, onSaved }: { record: MaintenanceRecord; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [cost, setCost] = useState(record.cost != null ? String(record.cost) : "");
+  const [resolution, setResolution] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    try {
+      await adminApi("admin_maintenance_update", {
+        method: "POST",
+        body: {
+          id: record.id, status: "resolved", resolved_at: new Date().toISOString(),
+          cost: cost.trim() === "" ? null : Number(cost),
+          notes: resolution.trim() || null,
+        },
+      });
+      toast("Repair resolved and recorded.");
+      onSaved(); onClose();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Update failed.", "err");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal open title={`Resolve — ${record.unit_code}`} sub={record.issue} onClose={onClose}
+      footer={<>
+        <button className="btn btn-ghost" type="button" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" type="button" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Mark resolved"}</button>
+      </>}>
+      <Field label="Repair cost (TSh)"><input type="number" min={0} value={cost} onChange={(e) => setCost(e.target.value)} placeholder="e.g. 45000" /></Field>
+      <Field label="Resolution notes"><input value={resolution} onChange={(e) => setResolution(e.target.value)} placeholder="What was fixed / replaced…" /></Field>
+    </Modal>
+  );
+}
+
 export function AdminInventory() {
   const toast = useToast();
   const [nonce, setNonce] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
   const [schedOpen, setSchedOpen] = useState(false);
   const [logsFor, setLogsFor] = useState<ConsoleUnit | null>(null);
+  const [editFor, setEditFor] = useState<ConsoleUnit | null>(null);
+  const [resolveFor, setResolveFor] = useState<MaintenanceRecord | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const [unit, setUnit] = useState({ unit_code: "", model: "", serial_number: "", status: "available", condition_grade: "excellent" });
-  const [sched, setSched] = useState({ console_id: "", issue: "", priority: "medium", engineer: "" });
+  const [unit, setUnit] = useState({ unit_code: "", model: PS5_MODELS[0] as string, serial_number: "", status: "available", condition_grade: "excellent" });
+  const [sched, setSched] = useState({ console_id: "", issue: "", priority: "medium", engineer: "", cost: "" });
 
   const reload = () => setNonce((n) => n + 1);
 
@@ -96,7 +197,7 @@ export function AdminInventory() {
       });
       toast(`Console ${unit.unit_code} added to fleet.`);
       setAddOpen(false);
-      setUnit({ unit_code: "", model: "", serial_number: "", status: "available", condition_grade: "excellent" });
+      setUnit({ unit_code: "", model: PS5_MODELS[0] as string, serial_number: "", status: "available", condition_grade: "excellent" });
       reload();
     } catch (e) {
       toast(e instanceof Error && e.message === "duplicate_unit_code" ? "That unit code already exists." : "Could not add console.", "err");
@@ -114,30 +215,16 @@ export function AdminInventory() {
         body: {
           console_id: sched.console_id, issue: sched.issue,
           priority: sched.priority, engineer: sched.engineer || null, status: "open",
+          cost: sched.cost.trim() === "" ? null : Number(sched.cost),
         },
       });
       toast("Maintenance scheduled.");
       setSchedOpen(false);
-      setSched({ console_id: "", issue: "", priority: "medium", engineer: "" });
+      setSched({ console_id: "", issue: "", priority: "medium", engineer: "", cost: "" });
       reload();
       pingAlerts();
     } catch {
       toast("Could not schedule maintenance.", "err");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function resolve(id: string) {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await adminApi("admin_maintenance_update", { method: "POST", body: { id, status: "resolved", resolved_at: new Date().toISOString() } });
-      toast("Repair marked resolved.");
-      reload();
-      pingAlerts();
-    } catch {
-      toast("Could not update repair.", "err");
     } finally {
       setBusy(false);
     }
@@ -211,6 +298,9 @@ export function AdminInventory() {
               <button className="btn btn-ghost btn-sm btn-block" type="button" onClick={() => setLogsFor(c)}>
                 View Tech logs
               </button>
+              <button className="btn btn-ghost btn-sm btn-block" type="button" onClick={() => setEditFor(c)}>
+                Edit unit
+              </button>
             </div>
           </div>
         ))}
@@ -235,20 +325,21 @@ export function AdminInventory() {
           <div className="table-wrap">
             <table className="data">
               <thead>
-                <tr><th>Unit ID</th><th>Issue description</th><th>Priority</th><th>Assigned tech</th><th>Cycle status</th><th>Opened</th><th></th></tr>
+                <tr><th>Unit ID</th><th>Issue description</th><th>Priority</th><th>Assigned tech</th><th>Cost</th><th>Cycle status</th><th>Opened</th><th></th></tr>
               </thead>
               <tbody>
                 {maint.data.map((m) => (
                   <tr key={m.id}>
                     <td className="mono cyan">{m.unit_code}</td>
-                    <td>{m.issue}</td>
+                    <td>{m.issue}{m.status === "resolved" && m.notes ? <div style={{ color: "var(--dim)", fontSize: ".78rem" }}>Fix: {m.notes}</div> : null}</td>
                     <td><Badge tone={PRIORITY_TONE[m.priority]}>{m.priority}</Badge></td>
                     <td>{m.engineer ?? "—"}</td>
+                    <td className="mono">{m.cost != null ? fmtTZS(m.cost) : "—"}</td>
                     <td><Badge tone={MAINT_STATUS_TONE[m.status]}>{titleCase(m.status)}</Badge></td>
                     <td className="mono">{fmtDay(m.opened_at)}</td>
                     <td>
                       {m.status !== "resolved" ? (
-                        <button className="btn btn-ghost btn-sm" type="button" onClick={() => resolve(m.id)} disabled={busy}>Resolve</button>
+                        <button className="btn btn-ghost btn-sm" type="button" onClick={() => setResolveFor(m)} disabled={busy}>Resolve</button>
                       ) : null}
                     </td>
                   </tr>
@@ -271,7 +362,11 @@ export function AdminInventory() {
       >
         <div className="field-row">
           <Field label="Unit code"><input value={unit.unit_code} onChange={(e) => setUnit({ ...unit, unit_code: e.target.value })} placeholder="PS5-009" /></Field>
-          <Field label="Model"><input value={unit.model} onChange={(e) => setUnit({ ...unit, model: e.target.value })} placeholder="Disc Edition" /></Field>
+          <Field label="Model">
+            <select value={unit.model} onChange={(e) => setUnit({ ...unit, model: e.target.value })}>
+              {PS5_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </Field>
         </div>
         <Field label="Serial number"><input value={unit.serial_number} onChange={(e) => setUnit({ ...unit, serial_number: e.target.value })} placeholder="FC348821990" /></Field>
         <div className="field-row">
@@ -313,9 +408,12 @@ export function AdminInventory() {
           </Field>
           <Field label="Assigned tech"><input value={sched.engineer} onChange={(e) => setSched({ ...sched, engineer: e.target.value })} placeholder="Nassor J." /></Field>
         </div>
+        <Field label="Estimated cost (TSh, optional)"><input type="number" min={0} value={sched.cost} onChange={(e) => setSched({ ...sched, cost: e.target.value })} placeholder="e.g. 45000" /></Field>
       </Modal>
 
       {logsFor ? <TechLogsModal unit={logsFor} onClose={() => setLogsFor(null)} /> : null}
+      {editFor ? <EditConsoleModal unit={editFor} onClose={() => setEditFor(null)} onSaved={reload} /> : null}
+      {resolveFor ? <ResolveModal record={resolveFor} onClose={() => setResolveFor(null)} onSaved={() => { reload(); pingAlerts(); }} /> : null}
     </>
   );
 }

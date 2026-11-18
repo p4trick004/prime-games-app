@@ -1,6 +1,7 @@
 import type {
-  BookingStatus, ConsoleStatus, ConditionGrade, GameStatus, IncidentSeverity,
-  IncidentStatus, MaintPriority, MaintStatus, PaymentStatus, TxnStatus,
+  BookingStatus, ConsoleStatus, ConditionGrade, CustomerStatus, CustomerTier, GameStatus,
+  IncidentSeverity, IncidentStatus, KycDocStatus, LinkStatus, MaintPriority, MaintStatus,
+  PaymentStatus, RentalStatus, TxnStatus,
 } from "./adminTypes";
 
 export type Tone = "gold" | "cyan" | "green" | "red" | "gray";
@@ -41,6 +42,38 @@ export const BOOKING_STATUS_TONE: Record<BookingStatus, Tone> = {
 export const PAYMENT_STATUS_TONE: Record<PaymentStatus, Tone> = {
   paid: "green", unpaid: "gold",
 };
+
+export const TIER_LABEL: Record<CustomerTier, string> = {
+  basic: "Basic (guest)", standard: "Standard", premium: "Premium",
+};
+export const TIER_TONE: Record<CustomerTier, Tone> = {
+  basic: "gray", standard: "cyan", premium: "gold",
+};
+export const CUSTOMER_STATUS_TONE: Record<CustomerStatus, Tone> = {
+  active: "green", suspended: "gold", blacklisted: "red",
+};
+export const RENTAL_STATUS_LABEL: Record<RentalStatus, string> = {
+  scheduled: "Scheduled", active: "Active", returned: "Returned", overdue: "Overdue", cancelled: "Cancelled",
+};
+export const RENTAL_STATUS_TONE: Record<RentalStatus, Tone> = {
+  scheduled: "gold", active: "cyan", returned: "green", overdue: "red", cancelled: "gray",
+};
+export const LINK_STATUS_TONE: Record<LinkStatus, Tone> = {
+  pending: "gold", linked: "green", rejected: "red", conflict: "red",
+};
+export const KYC_STATUS_TONE: Record<KycDocStatus, Tone> = {
+  pending: "gold", verified: "green", rejected: "red", expired: "gray",
+};
+
+// The six commercially available PS5 configurations.
+export const PS5_MODELS = [
+  "PS5 Original (Disc)",
+  "PS5 Original (Digital)",
+  "PS5 Slim (Disc)",
+  "PS5 Slim (Digital)",
+  "PS5 Pro",
+  "PS5 Pro (Disc Drive)",
+] as const;
 
 export const PACKAGE_LABEL: Record<string, string> = {
   starter: "Starter", weekend: "Weekend", night: "Night",

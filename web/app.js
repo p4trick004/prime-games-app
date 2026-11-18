@@ -414,7 +414,7 @@ async function sendBooking(payload) {
   let sent = false;
   let result = null;
   try {
-    const res = await fetch("/functions/v1/app?action=create_booking", {
+    const res = await fetch(`${window.PG_API_BASE || "/functions/v1/app"}?action=create_booking`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),

@@ -37,6 +37,10 @@ const UNIQUE = {
 const LIABILITY = ["damage", "loss", "theft", "late_return"];
 const err = (code, message) => ({ code, message });
 
+// Harness browser tests serve signed storage URLs from the local dev server.
+let storageOrigin = "https://fake.storage";
+export const setFakeStorageOrigin = (origin) => { storageOrigin = origin; };
+
 export function createFakeSupabase() {
   const tables = {};
   for (const t of TABLES) tables[t] = [];
@@ -474,8 +478,8 @@ export function createFakeSupabase() {
     storage: {
       from(bucket) {
         return {
-          async createSignedUploadUrl(path) { return { data: { signedUrl: `https://fake.storage/${bucket}/${path}?token=fake`, token: "fake", path }, error: null }; },
-          async createSignedUrl(path, expires) { return { data: { signedUrl: `https://fake.storage/${bucket}/${path}?expires=${expires}` }, error: null }; },
+          async createSignedUploadUrl(path) { return { data: { signedUrl: `${storageOrigin}/storage/v1/object/upload/sign/${bucket}/${path}?token=fake`, token: "fake", path }, error: null }; },
+          async createSignedUrl(path, expires) { return { data: { signedUrl: `${storageOrigin}/storage/v1/object/sign/${bucket}/${path}?token=fake&expires=${expires}` }, error: null }; },
           async upload() { return { data: { path: "fake" }, error: null }; },
         };
       },
