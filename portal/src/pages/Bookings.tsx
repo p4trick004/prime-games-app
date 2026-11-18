@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { useMyBookings, isOpen, STATUS_LABEL, type Booking } from "../lib/bookings";
 import { PACKAGE_META, ZONES } from "../lib/pricing";
 import { fmtTZS, fmtDate, fmtTime, returnDateTime } from "../lib/format";
-import { WHATSAPP_NUMBER } from "../config";
 import { Badge, Spinner, Empty } from "../components/ui";
 
 const STATUS_TONE: Record<Booking["status"], "gold" | "cyan" | "green" | "red" | "gray"> = {
@@ -22,7 +21,6 @@ export function Bookings() {
 
   const row = (b: Booking) => {
     const returns = returnDateTime(b.start_date, b.start_time, b.days, b.package_key);
-    const waText = encodeURIComponent(`Hello Prime Games! About my booking ${b.ref} (${PACKAGE_META[b.package_key].name}, ${fmtDate(b.start_date)}) —`);
     return (
       <div className="card" key={b.id} style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 220 }}>
@@ -45,13 +43,9 @@ export function Bookings() {
         <div style={{ textAlign: "right" }}>
           <div className="mono gold" style={{ fontSize: "1.15rem", fontWeight: 700 }}>{fmtTZS(b.total)}</div>
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            {(b.status === "pending" || b.status === "confirmed") ? (
-              <a className="btn btn-ghost btn-sm" href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waText}%20I%20need%20to%20cancel.`} target="_blank" rel="noopener">Request cancel</a>
-            ) : null}
             {b.payment_status === "unpaid" && b.status !== "cancelled" ? (
               <Link className="btn btn-primary btn-sm" to="/payments">Pay</Link>
             ) : null}
-            <a className="btn btn-gold btn-sm" href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waText}`} target="_blank" rel="noopener">WhatsApp</a>
           </div>
         </div>
       </div>

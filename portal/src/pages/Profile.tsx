@@ -140,7 +140,7 @@ export function Profile() {
           <h1>Profile {premium ? <Badge tone="gold">★ PREMIUM MEMBER</Badge> : <Badge tone="cyan">STANDARD</Badge>}</h1>
           <p>{session?.user.email}</p>
         </div>
-        <button className="btn btn-ghost btn-sm" type="button" onClick={async () => { await signOut(); navigate("/app/login"); }}>
+        <button className="btn btn-ghost btn-sm" type="button" onClick={async () => { await signOut(); navigate("/login"); }}>
           <Ic name="logout" size={14} /> Sign out
         </button>
       </div>

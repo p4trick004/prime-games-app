@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
-import { WHATSAPP_NUMBER } from "../config";
 import {
   RATES, ZONES, PACKAGE_META, GAME_LIBRARY, STARTER_PRESET,
   priceBooking, type PackageKey,
@@ -145,9 +144,6 @@ export function Browse() {
   const endDate = pkg ? addDays(startDate, days) : startDate;
 
   if (success) {
-    const waText = encodeURIComponent(
-      `Hello Prime Games! I just booked ref ${success.ref} through my account. Please confirm my booking.`,
-    );
     return (
       <>
         <div className="page-head">
@@ -158,14 +154,13 @@ export function Browse() {
         </div>
         <div className="card" style={{ maxWidth: 560, borderColor: "rgba(47,213,117,.5)" }}>
           <Badge tone="green">PENDING APPROVAL</Badge>
-          <h3 style={{ margin: "14px 0 6px" }}>One required step left: confirm on WhatsApp</h3>
+          <h3 style={{ margin: "14px 0 6px" }}>Your booking is in our system</h3>
           <p style={{ color: "var(--dim)", fontSize: ".9rem" }}>
-            Message us with your reference so we can confirm your booking. We reply within 30 minutes (8:00–22:00 EAT).
+            We've received your booking and will review and confirm it within 30 minutes (8:00–22:00 EAT). No further action is needed — track its status under My bookings.
           </p>
           <div className="kv"><dt>Total to pay</dt><dd className="mono gold">{fmtTZS(success.total)}</dd></div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-            <a className="btn btn-gold" href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waText}`} target="_blank" rel="noopener">Confirm on WhatsApp</a>
-            <button className="btn btn-ghost" type="button" onClick={() => navigate("/bookings")}>View my bookings</button>
+            <button className="btn btn-primary" type="button" onClick={() => navigate("/bookings")}>View my bookings</button>
           </div>
         </div>
       </>

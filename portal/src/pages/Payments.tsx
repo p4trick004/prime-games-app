@@ -4,10 +4,7 @@ import { useCustomer } from "../lib/customer";
 import { PACKAGE_META } from "../lib/pricing";
 import { fmtTZS, fmtDate } from "../lib/format";
 import { fmtStamp, METHOD_LABEL, TXN_STATUS_TONE, titleCase } from "../lib/adminLabels";
-import { WHATSAPP_NUMBER } from "../config";
 import { Badge, Spinner, Empty } from "../components/ui";
-
-const waPay = (text: string) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 
 export function Payments() {
   const { bookings, error: bErr } = useMyBookings();
@@ -64,7 +61,6 @@ export function Payments() {
           <p className="grow">
             <strong>Settle before handover.</strong> Standard membership requires the balance to be fully paid before a console is released.
           </p>
-          <a className="btn btn-primary btn-sm" href={waPay(`Hello Prime Games! I'd like to settle my outstanding balance of ${fmtTZS(debt)} via M-Pesa. Please send me the payment number.`)} target="_blank" rel="noopener">Pay via M-Pesa</a>
         </div>
       ) : null}
 
@@ -85,9 +81,6 @@ export function Payments() {
                 </p>
               </div>
               <div className="mono gold" style={{ fontSize: "1.15rem", fontWeight: 700 }}>{fmtTZS(b.total)}</div>
-              <a className="btn btn-primary btn-sm" href={waPay(`Hello Prime Games! I'd like to pay for booking ${b.ref} (${fmtTZS(b.total)}) via M-Pesa. Please send me the payment number.`)} target="_blank" rel="noopener">
-                {b.payment_method === "cod" ? "Confirm cash plan" : "Pay with M-Pesa"}
-              </a>
             </div>
           ))}
         </div>
@@ -96,7 +89,7 @@ export function Payments() {
       <div className="banner gold" style={{ marginTop: 22 }}>
         <span className="ico">📱</span>
         <p className="grow">
-          <strong>M-Pesa:</strong> message us on WhatsApp with your booking ref and we'll send the till number and confirm your payment within minutes (8:00–22:00 EAT).
+          <strong>M-Pesa:</strong> settle via M-Pesa or cash on delivery. We record your payment after confirmation (8:00–22:00 EAT).
         </p>
       </div>
 

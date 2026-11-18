@@ -25,7 +25,7 @@
         <a href="#faq" data-i18n="nav.faq">FAQ</a>
       </nav>
       <div class="header-actions">
-        <a href="/app/index.html" class="btn btn-ghost btn-sm" data-i18n="nav.account">My account</a>
+        <a href="/app/index.html" data-pg-link="account" class="btn btn-ghost btn-sm" data-i18n="nav.account">My account</a>
         <button id="langToggle" class="lang-toggle" type="button" aria-label="Switch language">
           <span class="lang-opt" data-lang="en">EN</span><span class="lang-sep">/</span><span class="lang-opt" data-lang="sw">SW</span>
         </button>
@@ -268,7 +268,7 @@
           <div class="confirm-steps">
             <h4 data-i18n="conf.stepsTitle">What happens next</h4>
             <ol>
-              <li data-i18n="conf.s1">Tap the WhatsApp button below to send us your request — this is required so we can confirm your booking. We reply within 30 min (8:00–22:00 EAT).</li>
+              <li data-i18n="conf.s1">Your booking is received in our system — we review and confirm it within 30 minutes (8:00–22:00 EAT). No further action is needed.</li>
               <li id="confPayMpesa" data-i18n="conf.s2mpesa">You pay via M-Pesa: dial *150*00#, choose Lipa kwa M-Pesa, and use the business number we send you.</li>
               <li id="confPayCod" hidden data-i18n="conf.s2cod">You pay on delivery — cash or M-Pesa directly to the rider when the console arrives.</li>
               <li data-i18n="conf.s3">We deliver and set up within 1–2 hours anywhere in Dar es Salaam, verify your ID, and pick up when your rental ends.</li>
@@ -276,8 +276,7 @@
           </div>
           <div class="confirm-actions">
             <button type="button" id="confRetry" class="btn btn-primary" hidden>Try sending again</button>
-            <a id="whatsappLink" class="btn btn-whatsapp" href="#" target="_blank" rel="noopener">Message us on WhatsApp to confirm your booking</a>
-            <span class="wa-required" data-i18n="conf.waRequired">Required</span>
+            <a id="whatsappLink" class="btn btn-whatsapp" href="#" target="_blank" rel="noopener" hidden>Send request on WhatsApp</a>
             <button type="button" id="backToForm" class="btn btn-ghost" data-i18n="conf.edit">Edit my booking</button>
           </div>
         </div>
@@ -393,8 +392,8 @@
         <a href="#book" data-i18n="nav.book">Book</a>
         <a href="#games" data-i18n="nav.games">Games</a>
         <a href="#faq" data-i18n="nav.faq">FAQ</a>
-        <a href="/app/index.html" data-i18n="nav.account">My account</a>
-        <a href="/app/index.html#/admin" data-i18n="nav.admin">Admin</a>
+        <a href="/app/index.html" data-pg-link="account" data-i18n="nav.account">My account</a>
+        <a href="/app/index.html#/admin" data-pg-link="admin" data-i18n="nav.admin">Admin</a>
       </nav>
       <div class="footer-col">
         <h4 data-i18n="footer.hub">Find us</h4>
@@ -417,6 +416,7 @@
     </div>
   </footer>
 
+  <script src="site-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

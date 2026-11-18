@@ -83,11 +83,11 @@ const I18N = {
     "conf.refLabel": "Booking reference",
     "conf.retry": "Try sending again",
     "conf.stepsTitle": "What happens next",
-    "conf.s1": "Tap the WhatsApp button below to send us your request — this is required so we can confirm your booking. We reply within 30 min (8:00–22:00 EAT).",
+    "conf.s1": "Your booking is received in our system — we review and confirm it within 30 minutes (8:00–22:00 EAT). No further action is needed.",
     "conf.s2mpesa": "You pay via M-Pesa: dial *150*00#, choose Lipa kwa M-Pesa, and use the business number we send you.",
     "conf.s2cod": "You pay on delivery — cash or M-Pesa directly to the rider when the console arrives.",
     "conf.s3": "We deliver and set up within 1–2 hours anywhere in Dar es Salaam, verify your ID, and pick up when your rental ends.",
-    "conf.wa": "Send request on WhatsApp", "conf.waConfirm": "Message us on WhatsApp to confirm your booking", "conf.waRequired": "Required", "conf.edit": "Edit my booking",
+    "conf.wa": "Send request on WhatsApp", "conf.edit": "Edit my booking",
     "games.title": "Games included",
     "games.sub": "Weekend and Night rentals include up to 5 games of your choice; the Starter Package arrives pre-loaded with 5 popular titles. Current library highlights — tell us your picks when booking.",
     "genre.shooter": "Shooter", "genre.basketball": "Basketball", "genre.football": "Football", "genre.action": "Action",
@@ -198,11 +198,11 @@ const I18N = {
     "conf.refLabel": "Namba ya oda",
     "conf.retry": "Jaribu kutuma tena",
     "conf.stepsTitle": "Kinachofuata",
-    "conf.s1": "Bonyeza kitufe cha WhatsApp hapa chini kututumia ombi lako — ni lazima ili tupate kuthibitisha oda yako. Tunajibu ndani ya dakika 30 (8:00–22:00 EAT).",
+    "conf.s1": "Oda yako imepokelewa kwenye mfumo wetu — tunaikagua na kuithibitisha ndani ya dakika 30 (8:00–22:00 EAT). Hakuna hatua nyingine inayohitajika.",
     "conf.s2mpesa": "Unalipa kwa M-Pesa: piga *150*00#, chagua Lipa kwa M-Pesa, na utumie namba ya biashara tutakayokutumia.",
     "conf.s2cod": "Unalipa unapopokea — pesa taslimu au M-Pesa moja kwa moja kwa rider konsoli kikifika.",
     "conf.s3": "Tunapeleka na kuweka ndani ya saa 1–2 popote Dar es Salaam, kukagua kitambulisho chako, na kuchukua ukimaliza.",
-    "conf.wa": "Tuma ombi kwa WhatsApp", "conf.waConfirm": "Tutumie WhatsApp kuthibitisha oda yako", "conf.waRequired": "Lazima", "conf.edit": "Hariri oda yangu",
+    "conf.wa": "Tuma ombi kwa WhatsApp", "conf.edit": "Hariri oda yangu",
     "games.title": "Michezo iliyojumuishwa",
     "games.sub": "Kifurushi cha Wikendi na Usiku vinajumuisha michezo hadi 5 unayochagua; Kifurushi cha Kuanzia kinakuja na michezo 5 maarufu. Hii hapa michache ya sasa — tuambie uchaguzi wako unapoweka oda.",
     "genre.shooter": "Bunduki", "genre.basketball": "Mpira wa kikapu", "genre.football": "Mpira", "genre.action": "Vitendo",
@@ -401,7 +401,8 @@ function renderConfirmation(b) {
     $("#confRefLabel").textContent = `${t("conf.refLabel")}:`;
     $("#confRef").textContent = b.ref;
   }
-  $("#whatsappLink").textContent = b.sent ? t("conf.waConfirm") : t("conf.wa");
+  $("#whatsappLink").hidden = b.sent;
+  $("#whatsappLink").textContent = t("conf.wa");
   $("#confRetry").hidden = b.sent !== false;
 }
 
