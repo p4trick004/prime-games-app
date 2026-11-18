@@ -1,25 +1,26 @@
 import { Link } from "react-router-dom";
-import { useMyBookings, STATUS_LABEL, type Booking } from "../lib/bookings";
-import { PACKAGE_META, GAME_LIBRARY } from "../lib/pricing";
-import { fmtTZS, fmtDateShort } from "../lib/format";
+import { useMyRentals, RENTAL_STATUS_LABEL, RENTAL_STATUS_TONE, type Rental } from "../lib/rentals";
+import { PACKAGE_META } from "../lib/pricing";
+import { fmtTZS } from "../lib/format";
+import { fmtStamp } from "../lib/adminLabels";
 import { Badge, StatCard, Spinner, Empty } from "../components/ui";
 
-const statusTone = (b: Booking) =>
-  b.status === "cancelled" ? "red" : b.status === "completed" ? "green" : b.status === "pending" ? "gold" : "cyan";
+const pkgName = (r: Rental) =>
+  r.package_key && r.package_key in PACKAGE_META ? PACKAGE_META[r.package_key as keyof typeof PACKAGE_META].name : "Rental";
 
 export function Rentals() {
-  const { bookings, error } = useMyBookings();
-  if (!bookings) return <Spinner />;
+  const { rentals, error } = useMyRentals();
+  if (!rentals) return <Spinner />;
 
-  const counted = bookings.filter((b) => b.status !== "cancelled");
-  const completed = counted.filter((b) => b.status === "completed");
-  const totalDays = counted.reduce((s, b) => s + (b.package_key === "weekend" ? 3 : b.days), 0);
-  const totalSpend = counted.filter((b) => b.payment_status === "paid").reduce((s, b) => s + b.total, 0);
+  const counted = rentals.filter((r) => r.status !== "cancelled");
+  const returned = counted.filter((r) => r.status === "returned");
+  const totalDays = counted.reduce((s, r) => s + (r.package_key === "weekend" ? 3 : (r.days ?? 0)), 0);
+  const lateFees = counted.reduce((s, r) => s + (r.late_fee ?? 0), 0);
   const fav = (() => {
     const tally = new Map<string, number>();
-    for (const b of counted) tally.set(b.package_key, (tally.get(b.package_key) ?? 0) + 1);
+    for (const r of counted) if (r.package_key) tally.set(r.package_key, (tally.get(r.package_key) ?? 0) + 1);
     const top = [...tally.entries()].sort((a, b) => b[1] - a[1])[0];
-    return top ? PACKAGE_META[top[0] as Booking["package_key"]].name : "—";
+    return top && top[0] in PACKAGE_META ? PACKAGE_META[top[0] as keyof typeof PACKAGE_META].name : "—";
   })();
 
   return (
@@ -27,56 +28,52 @@ export function Rentals() {
       <div className="page-head">
         <div>
           <h1>My rentals</h1>
-          <p>Your full rental history and stats — loyalty points grow with every completed rental.</p>
+          <p>Your console handovers and returns — every unit, date and condition on record.</p>
         </div>
         <Link to="/browse" className="btn btn-primary btn-sm">Rent again</Link>
       </div>
 
-      {error ? <div className="banner warn"><span className="ico">!</span><p className="grow">Couldn't load history ({error}).</p></div> : null}
+      {error ? <div className="banner warn"><span className="ico">!</span><p className="grow">Couldn't load rentals ({error}).</p></div> : null}
 
       <div className="grid stats">
-        <StatCard label="Total rentals" value={counted.length} sub={`${completed.length} completed`} />
+        <StatCard label="Total rentals" value={counted.length} sub={`${returned.length} returned`} />
         <StatCard label="Days played" value={totalDays} sub="Weekends count as 3 days" />
-        <StatCard label="Total spend" value={fmtTZS(totalSpend)} tone="gold" sub="Paid bookings only" />
+        <StatCard label="Late fees" value={fmtTZS(lateFees)} tone={lateFees > 0 ? "gold" : "green"} sub="Charged on late returns" />
         <StatCard label="Favourite plan" value={<span style={{ fontSize: "1.05rem" }}>{fav}</span>} tone="green" />
       </div>
 
-      <h3 style={{ font: "600 10px var(--font-mono)", letterSpacing: ".18em", color: "var(--dim)", margin: "26px 0 12px" }}>HISTORY</h3>
-      {bookings.length === 0 ? (
+      <h3 style={{ font: "600 10px var(--font-mono)", letterSpacing: ".18em", color: "var(--dim)", margin: "26px 0 12px" }}>RENTAL HISTORY</h3>
+      {rentals.length === 0 ? (
         <Empty title="No rentals yet">
-          <p style={{ margin: "0 0 14px" }}>Your first PS5 session is a few taps away.</p>
+          <p style={{ margin: "0 0 14px" }}>Rentals appear here once a console is handed over for your booking.</p>
           <Link to="/browse" className="btn btn-primary btn-sm">Browse PS5s</Link>
         </Empty>
       ) : (
         <div className="table-wrap">
           <table className="data">
             <thead>
-              <tr><th>Ref</th><th>Package</th><th>Dates</th><th>Games</th><th>Total</th><th>Status</th></tr>
+              <tr><th>Booking</th><th>Package</th><th>Unit</th><th>Out</th><th>Due back</th><th>Returned</th><th>Late fee</th><th>Status</th></tr>
             </thead>
             <tbody>
-              {[...bookings].sort((a, b) => b.start_date.localeCompare(a.start_date)).map((b) => {
-                const titles = (b.notes ?? "").startsWith("Games: ")
-                  ? b.notes!.slice(7).split("; ").filter(Boolean)
-                  : b.package_key === "starter"
-                    ? GAME_LIBRARY.filter((g) => ["fc27", "mw3", "gta6", "nba2k27", "spiderman2"].includes(g.id)).map((g) => g.title)
-                    : [];
-                return (
-                  <tr key={b.id}>
-                    <td className="mono cyan">{b.ref}</td>
-                    <td>{PACKAGE_META[b.package_key].name}</td>
-                    <td>{fmtDateShort(b.start_date)} · {b.package_key === "weekend" ? "Fri→Sun" : `${b.days}${b.package_key === "night" ? "n" : "d"}`}</td>
-                    <td style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={titles.join(", ")}>
-                      {titles.length ? titles.slice(0, 2).join(", ") + (titles.length > 2 ? ` +${titles.length - 2}` : "") : "—"}
-                    </td>
-                    <td className="mono">{fmtTZS(b.total)}</td>
-                    <td><Badge tone={statusTone(b)}>{STATUS_LABEL[b.status]}</Badge></td>
-                  </tr>
-                );
-              })}
+              {rentals.map((r) => (
+                <tr key={r.id}>
+                  <td className="mono cyan">{r.booking_ref ?? "—"}</td>
+                  <td>{pkgName(r)}</td>
+                  <td className="mono">{r.unit_code ?? "—"}</td>
+                  <td className="mono">{fmtStamp(r.start_at)}</td>
+                  <td className="mono gold">{fmtStamp(r.expected_return_at)}</td>
+                  <td className="mono">{fmtStamp(r.actual_return_at)}</td>
+                  <td className="mono">{r.late_fee ? fmtTZS(r.late_fee) : "—"}</td>
+                  <td><Badge tone={RENTAL_STATUS_TONE[r.status]}>{RENTAL_STATUS_LABEL[r.status]}</Badge></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
+      <p style={{ color: "var(--dim)", fontSize: ".82rem", marginTop: 14 }}>
+        Condition is recorded at handover and return. Late returns may incur a fee agreed with the team.
+      </p>
     </>
   );
 }

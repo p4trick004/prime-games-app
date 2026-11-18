@@ -1,6 +1,8 @@
 "use strict";
 
-const API = "/functions/v1/app";
+// Same-origin on Qoder Sites; a host page may set window.PG_API_BASE to the
+// Supabase function URL for cross-origin hosting (Phase 6).
+const API = window.PG_API_BASE || "/functions/v1/app";
 const TOKEN_KEY = "pg-admin-token";
 
 const $ = (sel) => document.querySelector(sel);

@@ -1,19 +1,20 @@
--- Prime Games — Phase 3: 0012 SCENARIO TESTS (NON-PERSISTENT)
+-- Prime Games — Phase 4: 0012 SCENARIO TESTS (NON-PERSISTENT, MODEL C)
 -- Target: poaxanthiifatydqbnqq.supabase.co
--- Run AFTER 0001..0010 and 0011. Supabase Dashboard -> SQL Editor -> Run.
+-- Run AFTER 0001..0010, 0011 and 0013. Supabase Dashboard -> SQL Editor -> Run.
 --
 -- The whole script is wrapped in BEGIN ... ROLLBACK, so NO test data persists
 -- (the business schema stays EMPTY). Each test is a self-contained DO block that
 -- raises on failure and prints "TEST n PASS" on success. If any assertion fails,
 -- the transaction aborts and you will see the error; nothing is committed.
 --
--- Covers: guest booking, repeat-guest identity, payment/refund/late-fee math,
--- Basic/Standard payment-before-handover, Premium credit limits, one-active-
--- rental-per-console, append-only ledger, contact/credit audit, verified linking
--- (+ rejection of unverified methods), KYC path constraint, maintenance FK, and
--- RLS customer isolation. True multi-session concurrency is enforced by the
--- FOR UPDATE row lock in assert_credit_available() (not unit-testable in one
--- session); the cumulative-limit logic is verified here.
+-- Covers: guest booking + atomic guest dedup, Model C debt vs commitments,
+-- payment/refund/late-fee math, Basic/Standard payment-before-handover, Premium
+-- credit limits, one-active-rental-per-console, append-only ledger, settlement
+-- idempotency + reversal, atomic handover/return RPCs, contact/credit audit with
+-- app.actor attribution, verified linking (+ rejection of unverified methods),
+-- KYC path constraint, maintenance FK, aggregate RPCs, and RLS isolation.
+-- True multi-session concurrency is enforced by row/advisory locks (not
+-- unit-testable in one session); the cumulative-limit logic is verified here.
 
 begin;
 
@@ -48,17 +49,18 @@ begin
   raise notice 'TEST 1 PASS: guest booking + repeat-guest identity (1 customer, 2 bookings, tier basic)';
 end $$;
 
--- TEST 2: partial payments, refund, late fee -> correct outstanding ----------
+-- TEST 2: Model C debt math — partial payments, refund, late fee, commitments --
 do $$
 declare c uuid; b uuid; r uuid; o int;
 begin
   insert into public.customers (full_name, phone, customer_tier)
   values ('Ledger Tester', '255700000002', 'basic') returning id into c;
+  -- Model C: only delivered/completed bookings are debt.
   insert into public.bookings (ref, customer_id, zone_key, address, package_key, days,
     start_date, start_time, id_type, id_number, ec_name, ec_phone, payment_method,
-    rental_amount, discount, delivery_fee, total)
+    rental_amount, discount, delivery_fee, total, status, payment_status)
   values ('PG-T2', c, 'sinza', 'Sinza Test', 'starter', 2, '2026-12-01', '10:00',
-    'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 50000, 0, 0, 50000)
+    'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 50000, 0, 0, 50000, 'delivered', 'unpaid')
   returning id into b;
 
   o := public.customer_outstanding(c);
@@ -89,7 +91,18 @@ begin
   values ('TX-T2P', c, b, 15000, 'rental', 'mpesa', 'pending');
   o := public.customer_outstanding(c);
   if o <> 15000 then raise exception 'TEST 2 FAILED: pending payment changed balance %', o; end if;
-  raise notice 'TEST 2 PASS: partial payments + refund + late fee + pending exclusion (outstanding=15000)';
+
+  -- Model C: a pending booking is a commitment, NOT debt.
+  insert into public.bookings (ref, customer_id, zone_key, address, package_key, days,
+    start_date, start_time, id_type, id_number, ec_name, ec_phone, payment_method,
+    rental_amount, discount, delivery_fee, total, status, payment_status)
+  values ('PG-T2C', c, 'goba', 'Goba Test', 'night', 1, '2026-12-05', '20:00',
+    'nida', 'TEST1234', 'EC Test', '255712345678', 'cod', 15000, 0, 6000, 21000, 'pending', 'unpaid');
+  o := public.customer_outstanding(c);
+  if o <> 15000 then raise exception 'TEST 2 FAILED: pending booking counted as debt %', o; end if;
+  if public.customer_commitments(c) <> 21000 then
+    raise exception 'TEST 2 FAILED: commitments %', public.customer_commitments(c); end if;
+  raise notice 'TEST 2 PASS: Model C debt=15000; pending booking tracked as commitment=21000';
 end $$;
 
 -- TEST 3: Basic must settle BEFORE handover (credit_limit = 0) ---------------
@@ -137,15 +150,15 @@ begin
   insert into public.customers (full_name, phone, customer_tier, credit_limit)
   values ('Premium Credit', '255700000004', 'premium', 100000) returning id into c;
 
-  -- two 50k bookings -> outstanding 100k == limit: both handovers allowed
+  -- two delivered unpaid 50k bookings -> debt 100k == limit: both handovers allowed
   for i in 1..2 loop
     insert into public.consoles (unit_code, model, status, condition_grade)
     values ('T4-PS5-' || i, 'PS5 Slim Disc', 'available', 'excellent') returning id into con;
     insert into public.bookings (ref, customer_id, zone_key, address, package_key, days,
       start_date, start_time, id_type, id_number, ec_name, ec_phone, payment_method,
-      rental_amount, discount, delivery_fee, total)
+      rental_amount, discount, delivery_fee, total, status, payment_status)
     values ('PG-T4-' || i, c, 'sinza', 'Sinza Test', 'starter', 2, '2026-12-01', '10:00',
-      'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 50000, 0, 0, 50000)
+      'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 50000, 0, 0, 50000, 'delivered', 'unpaid')
     returning id into b;
     insert into public.rentals (customer_id, booking_id, console_id, status, start_at, expected_return_at)
     values (c, b, con, 'active', now(), now() + interval '2 days') returning id into r;
@@ -153,7 +166,7 @@ begin
   if public.customer_outstanding(c) <> 100000 then
     raise exception 'TEST 4 FAILED: outstanding %', public.customer_outstanding(c); end if;
 
-  -- third 50k booking -> outstanding 150k > limit: handover blocked
+  -- third 50k booking (pending) -> debt 100k + own total 50k > limit: blocked
   insert into public.consoles (unit_code, model, status, condition_grade)
   values ('T4-PS5-3', 'PS5 Slim Disc', 'available', 'excellent') returning id into con;
   insert into public.bookings (ref, customer_id, zone_key, address, package_key, days,
@@ -186,9 +199,9 @@ begin
   values ('T5-PS5', 'PS5 Slim Disc', 'available', 'excellent') returning id into con;
   insert into public.bookings (ref, customer_id, zone_key, address, package_key, days,
     start_date, start_time, id_type, id_number, ec_name, ec_phone, payment_method,
-    rental_amount, discount, delivery_fee, total)
+    rental_amount, discount, delivery_fee, total, status, payment_status)
   values ('PG-T5A', c, 'sinza', 'Sinza Test', 'starter', 2, '2026-12-01', '10:00',
-    'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 50000, 0, 0, 50000)
+    'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 50000, 0, 0, 50000, 'delivered', 'unpaid')
   returning id into b1;
   insert into public.rentals (customer_id, booking_id, console_id, status, start_at, expected_return_at)
   values (c, b1, con, 'active', now(), now() + interval '2 days') returning id into r1;
@@ -248,7 +261,12 @@ begin
     where customer_id = c and event_type = 'credit_limit_change'
       and old_credit_limit = 50000 and new_credit_limit = 150000;
   if n <> 1 then raise exception 'TEST 7 FAILED: credit_limit_change event not logged'; end if;
-  raise notice 'TEST 7 PASS: contact history (2) + credit-limit change audited';
+  -- 0013: RPC-driven changes must attribute the real actor via app.actor.
+  perform public.admin_update_customer(c, null, 200000, null, null, false, 'admin');
+  select count(*) into n from public.customer_credit_events
+    where customer_id = c and changed_by = 'admin' and new_credit_limit = 200000;
+  if n <> 1 then raise exception 'TEST 7 FAILED: app.actor not attributed to admin'; end if;
+  raise notice 'TEST 7 PASS: contact history (2) + credit-limit change audited + admin actor attributed';
 end $$;
 
 -- TEST 8: verified linking + rejection of unverified method -----------------
@@ -367,6 +385,86 @@ begin
 
   execute 'reset role';
   raise notice 'TEST 11 PASS: authenticated A reads only own booking/customer; B and ledger hidden';
+end $$;
+
+-- TEST 12: 0013 atomic RPCs — guest dedup, settlement, handover/return ---------
+do $$
+declare c uuid; c2 uuid; con uuid; b uuid; r uuid; n int; net int;
+begin
+  -- resolve_guest_customer reuses ONE guest identity per phone (advisory lock).
+  c := (public.resolve_guest_customer('255700000012', 'Race Guest', 'guest')).id;
+  c2 := (public.resolve_guest_customer('255700000012', 'Race Guest', 'guest')).id;
+  if c <> c2 then raise exception 'TEST 12 FAILED: guest identity duplicated'; end if;
+  select count(*) into n from public.customers where phone = '255700000012';
+  if n <> 1 then raise exception 'TEST 12 FAILED: % guests for one phone', n; end if;
+
+  insert into public.consoles (unit_code, model, status, condition_grade)
+  values ('T12-PS5', 'PS5 Slim Disc', 'available', 'excellent') returning id into con;
+  insert into public.bookings (ref, customer_id, zone_key, address, package_key, days,
+    start_date, start_time, id_type, id_number, ec_name, ec_phone, payment_method,
+    rental_amount, discount, delivery_fee, total, status, payment_status)
+  values ('PG-T12', c, 'goba', 'Goba Test', 'starter', 1, '2026-12-01', '10:00',
+    'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 25000, 0, 6000, 31000, 'confirmed', 'unpaid')
+  returning id into b;
+
+  -- settlement is idempotent: paid twice -> exactly ONE receipt.
+  perform public.admin_update_booking(b, null, 'paid', null, false, 'admin');
+  perform public.admin_update_booking(b, null, 'paid', null, false, 'admin');
+  select count(*) into n from public.payments where booking_id = b;
+  if n <> 1 then raise exception 'TEST 12 FAILED: % receipts after double settle', n; end if;
+
+  -- atomic handover: rental active + console rented + booking delivered.
+  r := (public.handover_rental(b, con, now(), now() + interval '1 day', 'good', null, 'admin')).id;
+  if (select status from public.rentals where id = r) <> 'active' then
+    raise exception 'TEST 12 FAILED: handover rental not active'; end if;
+  if (select status from public.consoles where id = con) <> 'rented' then
+    raise exception 'TEST 12 FAILED: console not rented after handover'; end if;
+  if (select status from public.bookings where id = b) <> 'delivered' then
+    raise exception 'TEST 12 FAILED: booking not delivered after handover'; end if;
+
+  -- atomic return with late fee: rental returned + console freed + booking completed.
+  perform public.return_rental(r, now() + interval '2 days', 2000, 'good', null, 'admin');
+  if (select status from public.rentals where id = r) <> 'returned' then
+    raise exception 'TEST 12 FAILED: rental not returned'; end if;
+  if (select status from public.consoles where id = con) <> 'available' then
+    raise exception 'TEST 12 FAILED: console not freed after return'; end if;
+  if (select status from public.bookings where id = b) <> 'completed' then
+    raise exception 'TEST 12 FAILED: booking not completed after return'; end if;
+  -- Model C: completed 31000 + late fee 2000 - settled receipt 31000 = 2000.
+  if public.customer_outstanding(c) <> 2000 then
+    raise exception 'TEST 12 FAILED: post-return outstanding %', public.customer_outstanding(c); end if;
+
+  -- unsettle appends a reversing entry (net zero); the original is never edited.
+  perform public.admin_update_booking(b, null, 'unpaid', null, false, 'admin');
+  select count(*) into n from public.payments where booking_id = b;
+  if n <> 2 then raise exception 'TEST 12 FAILED: expected 2 ledger entries, got %', n; end if;
+  select coalesce(sum(amount), 0) into net from public.payments where booking_id = b and status = 'settled';
+  if net <> 0 then raise exception 'TEST 12 FAILED: reversal net %', net; end if;
+  raise notice 'TEST 12 PASS: guest dedup + idempotent settle + atomic handover/return + reversal';
+end $$;
+
+-- TEST 13: 0013 aggregate RPCs (no row caps) ----------------------------------
+do $$
+declare c uuid; b uuid; o int; bk bigint; sp bigint; rev bigint;
+begin
+  insert into public.customers (full_name, phone, customer_tier)
+  values ('Agg Tester', '255700000013', 'basic') returning id into c;
+  insert into public.bookings (ref, customer_id, zone_key, address, package_key, days,
+    start_date, start_time, id_type, id_number, ec_name, ec_phone, payment_method,
+    rental_amount, discount, delivery_fee, total, status, payment_status)
+  values ('PG-T13', c, 'sinza', 'Sinza Test', 'starter', 2, '2026-12-01', '10:00',
+    'nida', 'TEST1234', 'EC Test', '255712345678', 'mpesa', 40000, 0, 0, 40000, 'completed', 'unpaid')
+  returning id into b;
+  insert into public.payments (ref, customer_id, amount, kind, method, status)
+  values ('TX-T13', c, 15000, 'rental', 'cash', 'settled');
+
+  select outstanding into o from public.outstanding_by_customer() where customer_id = c;
+  if o <> 25000 then raise exception 'TEST 13 FAILED: outstanding_by_customer %', o; end if;
+  select bookings, spend into bk, sp from public.customer_summaries() where customer_id = c;
+  if bk <> 1 or sp <> 15000 then raise exception 'TEST 13 FAILED: summaries % / %', bk, sp; end if;
+  select revenue into rev from public.revenue_stats();
+  if rev < 15000 then raise exception 'TEST 13 FAILED: revenue_stats %', rev; end if;
+  raise notice 'TEST 13 PASS: outstanding_by_customer / customer_summaries / revenue_stats';
 end $$;
 
 rollback;

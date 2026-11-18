@@ -1,4 +1,5 @@
 import { API_BASE } from "../config";
+import { ApiError } from "./api";
 
 // Admin sessions use the HMAC x-admin-token issued by admin_login, kept in localStorage
 // with its expiry so a stale token is dropped before it is ever sent.
@@ -64,7 +65,7 @@ export async function adminApi<T = unknown>(action: string, opts: AdminApiOption
     throw new AdminUnauthorized();
   }
   if (!res.ok || data === null) {
-    throw new Error((data as { error?: string } | null)?.error ?? `request_failed_${res.status}`);
+    throw new ApiError((data as { error?: string } | null)?.error ?? `request_failed_${res.status}`, res.status);
   }
   return data;
 }

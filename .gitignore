@@ -7,6 +7,8 @@ node_modules/
 web/app/
 dist/
 build/
+portal/dist-preview/
+portal/dist-vercel/
 *.tsbuildinfo
 
 # Environment / secrets — keep .env.example tracked
@@ -16,6 +18,9 @@ build/
 
 # Qoder Sites platform metadata (local dev/deployment descriptor)
 *.qoder.site
+
+# Supabase CLI local cache (link state, version pins)
+supabase/.temp/
 
 # Design references & generated source imagery (not used at runtime)
 dev/figma/

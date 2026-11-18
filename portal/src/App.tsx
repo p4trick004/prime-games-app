@@ -1,6 +1,7 @@
 import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { CustomerProvider } from "./lib/customer";
 import { Shell } from "./components/Shell";
 import { Spinner } from "./components/ui";
 import { Login, Register } from "./pages/Auth";
@@ -62,7 +63,8 @@ function AdminArea() {
 export default function App() {
   return (
     <AuthProvider>
-      <AdminAuthProvider>
+      <CustomerProvider>
+        <AdminAuthProvider>
         <HashRouter>
           <Routes>
             <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
@@ -78,7 +80,8 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </HashRouter>
-      </AdminAuthProvider>
+        </AdminAuthProvider>
+      </CustomerProvider>
     </AuthProvider>
   );
 }
