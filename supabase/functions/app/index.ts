@@ -6,6 +6,11 @@
 //   SUPABASE_SERVICE_ROLE_KEY    service_role key (bypasses RLS; backend only)
 //   ADMIN_PASSWORD               admin HMAC secret (preserved from the Qoder backend)
 //
+// Required configuration (not secret):
+//   CORS_ORIGINS                 comma-separated browser origin allowlist, e.g.
+//                                https://<production-site-origin>. Fail-closed:
+//                                unset means no browser origin is allowed.
+//
 // The service_role key is never returned to the browser. Admin authorization is
 // enforced in the handler via the ADMIN_PASSWORD HMAC token, not by a DB role.
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";

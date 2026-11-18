@@ -29,29 +29,15 @@ export async function findGuestByPhone(supabase, phone) {
   return data.find((c) => c.auth_user_id === null) ?? null;
 }
 
-// Resolve (or create) the guest customer for a booking. Guests book indefinitely
-// without an account; reuse the existing guest identity by normalized phone.
+// Resolve (or create) the guest customer for a booking via the atomic
+// resolve_guest_customer RPC (advisory lock on the phone): concurrent bookings
+// with the same new phone can never create duplicate guest identities.
 export async function resolveGuestCustomer(supabase, { phone, name }) {
-  const existing = await findGuestByPhone(supabase, phone);
-  if (existing) {
-    if (name && existing.full_name !== name) {
-      const { data, error } = await supabase.from("customers").update({ full_name: name })
-        .eq("id", existing.id).select("*").maybeSingle();
-      if (!error && data) return data;
-    }
-    return existing;
-  }
-  const row = {
-    id: crypto.randomUUID(),
-    auth_user_id: null,
-    full_name: name,
-    phone,
-    email: null,
-    customer_tier: "basic",
-    credit_limit: 0,
-    customer_status: "active",
-  };
-  const { data, error } = await supabase.from("customers").insert(row).select("*").single();
+  const { data, error } = await supabase.rpc("resolve_guest_customer", {
+    p_phone: phone,
+    p_name: name,
+    p_actor: "guest",
+  });
   if (error || !data) throw new Error("database_request_failed");
   return data;
 }

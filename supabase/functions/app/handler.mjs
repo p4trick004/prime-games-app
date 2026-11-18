@@ -3,7 +3,7 @@
 // supplies a service_role client; the Node harness supplies an in-memory fake.
 // Routes are selected with the `action` query parameter. Never trust browser money.
 import {
-  json, preflight, readJsonBody, str, normalizePhone, eatToday,
+  json, preflight, readJsonBody, str, normalizePhone, eatToday, corsOriginHeaders, rpcFailure,
   RATES, ZONE_FEES, ID_TYPES, PAYMENT_METHODS, STATUSES, PAYMENT_STATUSES,
   CONSOLE_STATUSES, CONSOLE_CONDITIONS, MAINT_STATUSES, MAINT_PRIORITIES,
   GAME_STATUSES, GAME_PLATFORMS, GAME_FORMATS, TXN_METHODS, TXN_KINDS, TXN_STATUSES,
@@ -19,7 +19,7 @@ import {
   resolveGuestCustomer, resolveMemberCustomer, getCustomerByAuth, getProfile,
   registerCustomer, requestGuestLink, approveLink, rejectLink, findGuestByPhone,
 } from "./lib/customers.mjs";
-import { appendPayment, settleBooking, unsettleBooking, aggregateOutstanding, revenueStats } from "./lib/ledger.mjs";
+import { appendPayment, aggregateOutstanding, revenueStats } from "./lib/ledger.mjs";
 import { handoverRental, returnRental, markOverdue, mapRentals } from "./lib/rentals.mjs";
 import {
   submitKyc, createKycUploadUrl, registerKycDocument, adminVerifyKyc, adminKycDownloadUrl, listKycDocuments,
@@ -260,39 +260,36 @@ async function handleAdminBookings(request, supabase) {
 async function handleAdminBookingUpdate(request, supabase) {
   const body = await readJsonBody(request);
   if (!body || typeof body.id !== "string" || !UUID_RE.test(body.id)) return bad();
-  const { data: current, error: curErr } = await supabase.from("bookings").select("*").eq("id", body.id).maybeSingle();
-  if (curErr) return failed();
-  if (!current) return json({ error: "not_found" }, 404);
-
-  const fields = {};
-  if (body.status !== undefined) {
-    if (!STATUSES.includes(body.status)) return bad();
-    fields.status = body.status;
-  }
-  let paymentChange = null;
-  if (body.payment_status !== undefined) {
-    if (!PAYMENT_STATUSES.includes(body.payment_status)) return bad();
-    fields.payment_status = body.payment_status;
-    if (body.payment_status !== current.payment_status) paymentChange = body.payment_status;
-  }
+  if (body.status !== undefined && !STATUSES.includes(body.status)) return bad();
+  if (body.payment_status !== undefined && !PAYMENT_STATUSES.includes(body.payment_status)) return bad();
+  let notes = null;
+  let clearNotes = false;
   if (body.notes !== undefined) {
-    if (body.notes !== null) {
-      const notes = optStr(body.notes, 0, 1000);
-      if (notes.invalid) return bad();
-      fields.notes = notes.value === "" ? null : notes.value;
-    } else fields.notes = null;
+    if (body.notes === null) clearNotes = true;
+    else {
+      const parsed = optStr(body.notes, 0, 1000);
+      if (parsed.invalid) return bad();
+      if (parsed.value === null) clearNotes = true;
+      else notes = parsed.value;
+    }
   }
-  if (Object.keys(fields).length === 0) return bad();
+  if (body.status === undefined && body.payment_status === undefined && body.notes === undefined) return bad();
 
-  // Financial flag changes are mirrored into the append-only ledger (README §4).
-  try {
-    if (paymentChange === "paid") await settleBooking(supabase, current, "admin");
-    else if (paymentChange === "unpaid") await unsettleBooking(supabase, current, "admin");
-  } catch {
-    return failed();
+  // One transaction: payment-flag changes mirror into the append-only ledger
+  // inside the RPC, so the flag and the ledger can never diverge.
+  const { data, error } = await supabase.rpc("admin_update_booking", {
+    p_booking_id: body.id,
+    p_status: body.status ?? null,
+    p_payment_status: body.payment_status ?? null,
+    p_notes: notes,
+    p_clear_notes: clearNotes,
+    p_actor: "admin",
+  });
+  if (error) {
+    if (String(error.message ?? "").includes("booking_not_found")) return json({ error: "not_found" }, 404);
+    const f = rpcFailure(error);
+    return json({ error: f.error }, f.status);
   }
-  const { data, error } = await supabase.from("bookings").update(fields).eq("id", body.id).select("*").maybeSingle();
-  if (error) return failed();
   if (!data) return json({ error: "not_found" }, 404);
   const [booking] = await mapBookings(supabase, [data]);
   return json({ ok: true, booking });
@@ -300,7 +297,7 @@ async function handleAdminBookingUpdate(request, supabase) {
 
 // ============================ ADMIN: stats ============================
 
-async function handleAdminStats(supabase) {
+async function handleAdminStats(request, supabase) {
   const countOf = async (table, filters) => {
     let q = supabase.from(table).select("id", { count: "exact" }).limit(1);
     for (const [column, value] of filters) q = q.eq(column, value);
@@ -354,43 +351,33 @@ async function handleAdminStats(supabase) {
 
 // ============================ ADMIN: customers ============================
 
-async function handleAdminCustomers(supabase) {
+async function handleAdminCustomers(request, supabase) {
   const { data: customers, error } = await supabase.from("customers").select("*")
     .order("created_at", { ascending: false }).limit(500);
   if (error || !Array.isArray(customers)) return failed();
-  const { data: bookings, error: bErr } = await supabase.from("bookings")
-    .select("customer_id,zone_key,total,status,payment_status,created_at").limit(5000);
-  if (bErr || !Array.isArray(bookings)) return failed();
-  const { data: payments, error: pErr } = await supabase.from("payments")
-    .select("customer_id,amount,status").limit(5000);
-  if (pErr || !Array.isArray(payments)) return failed();
-  let outstandingMap;
-  try { outstandingMap = await aggregateOutstanding(supabase); } catch { return failed(); }
 
-  const agg = new Map();
-  for (const c of customers) agg.set(c.id, { bookings: 0, spend: 0, open: 0, zone_key: null, last_at: c.created_at });
-  for (const b of bookings) {
-    const e = agg.get(b.customer_id);
-    if (!e) continue;
-    e.bookings += 1;
-    if (["pending", "confirmed", "delivered"].includes(b.status)) e.open += 1;
-    if (!e.zone_key || String(b.created_at) >= String(e.last_at)) { e.zone_key = b.zone_key; e.last_at = b.created_at; }
-  }
-  for (const p of payments) {
-    const e = agg.get(p.customer_id);
-    if (e && p.status === "settled" && Number.isInteger(p.amount) && p.amount > 0) e.spend += p.amount;
-  }
+  // Aggregates are computed in SQL (0013): complete at any row count, and
+  // outstanding uses the same Model C function as the credit gate.
+  let summaries;
+  let outstandingMap;
+  try {
+    const { data, error: sErr } = await supabase.rpc("customer_summaries");
+    if (sErr || !Array.isArray(data)) return failed();
+    summaries = new Map(data.map((s) => [s.customer_id, s]));
+    outstandingMap = await aggregateOutstanding(supabase);
+  } catch { return failed(); }
+
   const rows = customers.map((c) => {
-    const e = agg.get(c.id);
+    const s = summaries.get(c.id);
     return {
       id: c.id,
       name: c.full_name,
       phone: c.phone ?? "",
-      zone_key: e.zone_key ?? "other",
-      bookings: e.bookings,
-      spend: e.spend,
-      open: e.open,
-      last_at: e.last_at,
+      zone_key: s?.zone_key ?? "other",
+      bookings: Number(s?.bookings ?? 0),
+      spend: Number(s?.spend ?? 0),
+      open: Number(s?.open ?? 0),
+      last_at: s?.last_at ?? c.created_at,
       email: c.email ?? null,
       customer_tier: c.customer_tier,
       credit_limit: c.credit_limit,
@@ -412,31 +399,28 @@ const CUSTOMER_UPDATE_SPEC = {
 async function handleAdminCustomerUpdate(request, supabase) {
   const body = await readJsonBody(request);
   if (!body || typeof body.id !== "string" || !UUID_RE.test(body.id)) return bad();
-  const { data: current, error: curErr } = await supabase.from("customers").select("*").eq("id", body.id).maybeSingle();
-  if (curErr) return failed();
-  if (!current) return json({ error: "not_found" }, 404);
   const parsed = collectFields(body, CUSTOMER_UPDATE_SPEC);
   if (parsed.error) return bad();
   const fields = parsed.fields;
   if (Object.keys(fields).length === 0) return bad();
 
-  const nextTier = fields.customer_tier ?? current.customer_tier;
-  let nextLimit = fields.credit_limit ?? current.credit_limit;
-  // DB CHECK: non-premium must have zero credit. Premium credit is admin-granted.
-  if (nextTier !== "premium") nextLimit = 0;
-  if (nextTier === "premium" && fields.credit_limit === undefined && current.credit_limit === 0) {
-    // Promoting to premium without an explicit limit keeps 0 until a limit is approved.
-    nextLimit = 0;
+  // The RPC enforces the non-premium-no-credit rule, syncs the legacy profile
+  // tier and sets app.actor so the audit triggers record the real actor.
+  const { data, error } = await supabase.rpc("admin_update_customer", {
+    p_customer_id: body.id,
+    p_customer_tier: fields.customer_tier ?? null,
+    p_credit_limit: fields.credit_limit ?? null,
+    p_customer_status: fields.customer_status ?? null,
+    p_notes: fields.notes ?? null,
+    p_clear_notes: Object.hasOwn(fields, "notes") && fields.notes === null,
+    p_actor: "admin",
+  });
+  if (error) {
+    if (String(error.message ?? "").includes("customer_not_found")) return json({ error: "not_found" }, 404);
+    const f = rpcFailure(error);
+    return json({ error: f.error }, f.status);
   }
-  fields.customer_tier = nextTier;
-  fields.credit_limit = nextLimit;
-
-  const { data, error } = await supabase.from("customers").update(fields).eq("id", body.id).select("*").maybeSingle();
-  if (error) return failed();
   if (!data) return json({ error: "not_found" }, 404);
-  if (data.auth_user_id) {
-    await supabase.from("profiles").update({ tier: data.customer_tier === "premium" ? "premium" : "standard" }).eq("id", data.auth_user_id);
-  }
   return json({ ok: true, customer: data });
 }
 
@@ -969,7 +953,7 @@ const ADMIN_POST = {
   admin_kyc_verify: handleAdminKycVerify,
 };
 
-export async function handleApi({ request, supabase, env }) {
+async function dispatch({ request, supabase, env }) {
   if (request.method === "OPTIONS") return preflight();
   const action = new URL(request.url).searchParams.get("action");
   try {
@@ -1001,4 +985,12 @@ export async function handleApi({ request, supabase, env }) {
   } catch {
     return failed();
   }
+}
+
+export async function handleApi(ctx) {
+  const response = await dispatch(ctx);
+  for (const [name, value] of Object.entries(corsOriginHeaders(ctx.request, ctx.env))) {
+    response.headers.set(name, value);
+  }
+  return response;
 }

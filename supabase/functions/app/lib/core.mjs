@@ -9,12 +9,32 @@ export const SUPABASE_AUTH_ISSUER = "https://poaxanthiifatydqbnqq.supabase.co";
 export const JWKS_URL = `${SUPABASE_AUTH_ISSUER}/auth/v1/.well-known/jwks.json`;
 export const JWKS_TTL_MS = 10 * 60 * 1000;
 
+// Local test harnesses point auth at a fixture JWKS; production uses the defaults.
+let authConfig = { issuer: SUPABASE_AUTH_ISSUER, jwksUrl: JWKS_URL };
+export function configureAuth({ issuer, jwksUrl } = {}) {
+  authConfig = {
+    issuer: typeof issuer === "string" && issuer ? issuer : SUPABASE_AUTH_ISSUER,
+    jwksUrl: typeof jwksUrl === "string" && jwksUrl ? jwksUrl : JWKS_URL,
+  };
+}
+export const authIssuer = () => authConfig.issuer;
+export const jwksUrl = () => authConfig.jwksUrl;
+
 export const CORS_HEADERS = {
-  "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-headers": "content-type, x-supabase-token, x-admin-token, authorization, apikey",
   "access-control-max-age": "86400",
 };
+
+// Fail-closed: no ACAO header unless the request Origin is in CORS_ORIGINS
+// (comma-separated allowlist, set as edge-function config at deploy time).
+export function corsOriginHeaders(request, env) {
+  const origin = request.headers.get("origin");
+  if (!origin) return {};
+  const allowed = String(env?.("CORS_ORIGINS") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!allowed.includes(origin)) return {};
+  return { "access-control-allow-origin": origin, vary: "Origin" };
+}
 
 export function json(body, status = 200) {
   return Response.json(body, {
@@ -36,6 +56,22 @@ export async function readJsonBody(request) {
   } catch {
     return undefined;
   }
+}
+
+// Map Postgres RPC exceptions to the API {error,status} contract. `overrides`
+// maps message needles to HTTP statuses for call-site-specific conflicts.
+export function rpcFailure(error, overrides = {}) {
+  const msg = String(error?.message ?? "");
+  for (const [needle, status] of Object.entries(overrides)) {
+    if (msg.includes(needle)) return { error: needle, status };
+  }
+  if (msg.includes("invalid_input")) return { error: "invalid_input", status: 400 };
+  if (msg.includes("credit_limit_exceeded")) return { error: "credit_limit_exceeded", status: 402 };
+  if (msg.includes("customer_not_active")) return { error: "customer_not_active", status: 403 };
+  const notFound = msg.match(/[a-z_]*not_found/);
+  if (notFound) return { error: notFound[0], status: 404 };
+  if (error?.code === "23505") return { error: "duplicate", status: 409 };
+  return { error: "database_request_failed", status: 503 };
 }
 
 // ---- Business vocabularies (mirror the Phase 3 CHECK constraints) ----
@@ -69,8 +105,6 @@ export const KYC_DOC_STATUSES = ["pending", "verified", "rejected", "expired"];
 export const KYC_ACTIONS = ["uploaded", "verified", "rejected", "expired", "viewed"];
 export const LINK_METHODS = ["otp", "admin_assisted", "registration", "document"];
 export const LINK_STATUSES = ["pending", "linked", "rejected", "conflict"];
-// Kinds that create customer liability in customer_outstanding().
-export const LIABILITY_KINDS = ["damage", "loss", "theft", "late_return"];
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

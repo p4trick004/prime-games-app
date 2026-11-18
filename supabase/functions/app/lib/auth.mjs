@@ -1,5 +1,5 @@
 // Authentication: admin HMAC tokens (preserved unchanged) + Supabase customer JWT (ES256).
-import { json, UUID_RE, TOKEN_TTL_MS, SUPABASE_AUTH_ISSUER, JWKS_URL, JWKS_TTL_MS } from "./core.mjs";
+import { json, UUID_RE, TOKEN_TTL_MS, authIssuer, jwksUrl, JWKS_TTL_MS } from "./core.mjs";
 
 export async function hmacSign(password, message) {
   const key = await crypto.subtle.importKey(
@@ -27,10 +27,14 @@ function b64urlToBytes(s) {
 
 let jwksCache = { keys: null, at: 0 };
 
-async function getSigningKeys() {
+export function resetJwksCache() {
+  jwksCache = { keys: null, at: 0 };
+}
+
+async function getSigningKeys(force = false) {
   const now = Date.now();
-  if (jwksCache.keys && now - jwksCache.at < JWKS_TTL_MS) return jwksCache.keys;
-  const res = await fetch(JWKS_URL);
+  if (!force && jwksCache.keys && now - jwksCache.at < JWKS_TTL_MS) return jwksCache.keys;
+  const res = await fetch(jwksUrl());
   if (!res.ok) throw new Error("jwks_unavailable");
   const data = await res.json();
   jwksCache = { keys: Array.isArray(data.keys) ? data.keys : [], at: now };
@@ -49,10 +53,15 @@ export async function verifySupabaseJwt(token) {
     return null;
   }
   if (!header || header.alg !== "ES256") return null;
-  const keys = await getSigningKeys();
-  const jwk = keys.find((k) => k.kid === header.kid)
-    ?? keys.find((k) => k.kty === "EC" && k.crv === "P-256");
-  if (!jwk) return null;
+  if (typeof header.kid !== "string" || !header.kid) return null;
+  // Strict kid match only; one forced refetch covers signing-key rotation.
+  let keys = await getSigningKeys();
+  let jwk = keys.find((k) => k.kid === header.kid);
+  if (!jwk) {
+    keys = await getSigningKeys(true);
+    jwk = keys.find((k) => k.kid === header.kid);
+  }
+  if (!jwk || jwk.kty !== "EC" || jwk.crv !== "P-256") return null;
   let cryptoKey;
   try {
     cryptoKey = await crypto.subtle.importKey(
@@ -81,9 +90,10 @@ export async function verifySupabaseJwt(token) {
   }
   if (!payload || typeof payload !== "object") return null;
   const nowSec = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp === "number" && payload.exp < nowSec) return null;
+  if (typeof payload.exp !== "number" || payload.exp <= nowSec) return null;
   if (payload.aud !== "authenticated") return null;
-  if (payload.iss !== SUPABASE_AUTH_ISSUER && payload.iss !== `${SUPABASE_AUTH_ISSUER}/auth/v1`) return null;
+  const issuer = authIssuer();
+  if (payload.iss !== issuer && payload.iss !== `${issuer}/auth/v1`) return null;
   if (typeof payload.sub !== "string" || !UUID_RE.test(payload.sub)) return null;
   return payload;
 }

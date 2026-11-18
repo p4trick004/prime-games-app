@@ -41,9 +41,14 @@ export function createFakeSupabase() {
   const tables = {};
   for (const t of TABLES) tables[t] = [];
 
+  // Emulates the app.actor GUC set by 0013 RPCs (audit triggers read it).
+  let actorGuc = "system";
+
+  // Model C (0013): only delivered/completed bookings are debt; pending and
+  // confirmed reservations are commitments, not outstanding.
   function outstanding(customerId) {
     let charges = 0;
-    for (const b of tables.bookings) if (b.customer_id === customerId && b.status !== "cancelled") charges += b.total ?? 0;
+    for (const b of tables.bookings) if (b.customer_id === customerId && ["delivered", "completed"].includes(b.status)) charges += b.total ?? 0;
     for (const r of tables.rentals) if (r.customer_id === customerId && r.status !== "cancelled") charges += r.late_fee ?? 0;
     for (const i of tables.incidents) {
       if (i.customer_id === customerId && ["open", "investigating", "resolved"].includes(i.status) && LIABILITY.includes(i.kind)) {
@@ -74,7 +79,12 @@ export function createFakeSupabase() {
       const clash = tables.rentals.find((r) => r.id !== ignoreId && r.console_id === row.console_id && ["active", "overdue"].includes(r.status));
       if (clash) throw err("23505", "rentals_one_active_console");
     }
-    if (row.status === "active") assertCredit(row.customer_id, 0);
+    if (row.status === "active") {
+      // 0013 gate: the booking's own total counts until it is delivered.
+      const b = tables.bookings.find((x) => x.id === row.booking_id);
+      const additional = b && ["pending", "confirmed"].includes(b.status) ? b.total ?? 0 : 0;
+      assertCredit(row.customer_id, additional);
+    }
   }
 
   function checkPayment(row) {
@@ -86,7 +96,7 @@ export function createFakeSupabase() {
   function auditCustomer(oldRow, newRow) {
     for (const field of ["full_name", "phone", "email"]) {
       if (oldRow[field] !== newRow[field]) {
-        tables.customer_contact_history.push({ id: crypto.randomUUID(), customer_id: newRow.id, field, old_value: oldRow[field] ?? null, new_value: newRow[field] ?? null, changed_by: "system", created_at: now() });
+        tables.customer_contact_history.push({ id: crypto.randomUUID(), customer_id: newRow.id, field, old_value: oldRow[field] ?? null, new_value: newRow[field] ?? null, changed_by: actorGuc, created_at: now() });
       }
     }
     const tierChanged = oldRow.customer_tier !== newRow.customer_tier;
@@ -98,7 +108,7 @@ export function createFakeSupabase() {
         id: crypto.randomUUID(), customer_id: newRow.id, event_type,
         old_tier: oldRow.customer_tier, new_tier: newRow.customer_tier,
         old_credit_limit: oldRow.credit_limit, new_credit_limit: newRow.credit_limit,
-        old_status: oldRow.customer_status, new_status: newRow.customer_status, changed_by: "system", created_at: now(),
+        old_status: oldRow.customer_status, new_status: newRow.customer_status, changed_by: actorGuc, created_at: now(),
       });
     }
   }
@@ -107,7 +117,7 @@ export function createFakeSupabase() {
     const r = { ...row };
     if (r.created_at === undefined) r.created_at = now();
     if (["customers", "bookings", "rentals", "consoles", "games", "maintenance", "incidents", "kyc_documents"].includes(table) && r.updated_at === undefined) r.updated_at = now();
-    if (table === "customers") { r.customer_tier ??= "basic"; r.credit_limit ??= 0; r.customer_status ??= "active"; }
+    if (table === "customers") { r.customer_tier ??= "basic"; r.credit_limit ??= 0; r.customer_status ??= "active"; r.auth_user_id ??= null; }
     if (table === "bookings") { r.status ??= "pending"; r.payment_status ??= "unpaid"; r.discount ??= 0; }
     if (table === "rentals") { r.status ??= "scheduled"; r.late_fee ??= 0; }
     if (table === "payments") { r.status ??= "settled"; r.currency ??= "TZS"; }
@@ -160,6 +170,13 @@ export function createFakeSupabase() {
         tables[t].push(row);
         return { data: { ...row }, error: null };
       }
+      if (this.mode === "delete") {
+        if (t === "payments") return { data: null, error: err("P0001", "append_only_violation: DELETE on payments is not permitted") };
+        const keep = tables[t].filter((r) => !this.matches(r));
+        tables[t].length = 0;
+        tables[t].push(...keep);
+        return { data: null, error: null };
+      }
       if (this.mode === "update") {
         if (t === "payments") return { data: null, error: err("P0001", "append_only_violation: UPDATE on payments is not permitted") };
         const hit = tables[t].find((r) => this.matches(r));
@@ -204,6 +221,205 @@ export function createFakeSupabase() {
     }
   }
 
+  // ---- 0013 RPC emulation: atomic via snapshot rollback, actor GUC set ----
+  function atomic(fn) {
+    const snap = {};
+    for (const t of TABLES) snap[t] = tables[t].map((r) => ({ ...r }));
+    try {
+      return fn();
+    } catch (e) {
+      for (const t of TABLES) { tables[t].length = 0; tables[t].push(...snap[t]); }
+      throw e;
+    }
+  }
+  const must = (result) => { if (result.error) throw result.error; return result.data; };
+  const upd = (t, id, fields) => must(new Builder(t, "update").eq("id", id).update(fields).run());
+  const ins = (t, row) => must(new Builder(t, "insert").insert(row).run());
+  const byId = (t, id) => tables[t].find((r) => r.id === id);
+  const fail = (code, message) => { throw err(code, message); };
+  const CONDITIONS = ["excellent", "good", "fair", "poor"];
+
+  function ledgerRef() {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const bytes = new Uint8Array(6);
+    crypto.getRandomValues(bytes);
+    return "TXN-" + [...bytes].map((b) => alphabet[b % alphabet.length]).join("");
+  }
+
+  function rpcResolveGuest(a) {
+    if (typeof a.p_phone !== "string" || !/^255[67][0-9]{8}$/.test(a.p_phone)) fail("P0001", "invalid_input");
+    const name = typeof a.p_name === "string" ? a.p_name.trim() : "";
+    if (name.length < 2 || name.length > 120) fail("P0001", "invalid_input");
+    const guests = tables.customers
+      .filter((c) => c.phone === a.p_phone && c.auth_user_id === null)
+      .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)) || String(x.id).localeCompare(String(y.id)));
+    if (guests[0]) {
+      if (guests[0].full_name !== name) return upd("customers", guests[0].id, { full_name: name });
+      return { ...guests[0] };
+    }
+    return ins("customers", {
+      id: crypto.randomUUID(), auth_user_id: null, full_name: name, phone: a.p_phone,
+      email: null, customer_tier: "basic", credit_limit: 0, customer_status: "active",
+    });
+  }
+
+  function rpcHandover(a) {
+    const booking = byId("bookings", a.p_booking_id);
+    if (!booking) fail("P0002", "booking_not_found");
+    if (["cancelled", "completed"].includes(booking.status)) fail("P0001", "booking_not_handoverable");
+    const consoleRow = byId("consoles", a.p_console_id);
+    if (!consoleRow) fail("P0002", "console_not_found");
+    if (consoleRow.status !== "available") fail("P0001", "console_not_available");
+    const existing = tables.rentals.filter((r) => r.booking_id === a.p_booking_id);
+    if (existing.some((r) => ["active", "overdue", "returned"].includes(r.status))) fail("P0001", "rental_already_exists");
+    const start = a.p_start_at ?? now();
+    const expected = a.p_expected_return_at ?? new Date(Date.parse(start) + booking.days * 86400000).toISOString();
+    if (Date.parse(expected) < Date.parse(start)) fail("P0001", "invalid_input");
+    const condition = CONDITIONS.includes(a.p_condition_out) ? a.p_condition_out : consoleRow.condition_grade;
+    const scheduled = existing.filter((r) => r.status === "scheduled")
+      .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)))[0];
+    let rental;
+    if (scheduled) {
+      rental = upd("rentals", scheduled.id, {
+        console_id: a.p_console_id, status: "active", start_at: start, expected_return_at: expected,
+        condition_out: condition, notes: a.p_notes ?? scheduled.notes ?? null,
+      });
+    } else {
+      rental = ins("rentals", {
+        id: crypto.randomUUID(), customer_id: booking.customer_id, booking_id: booking.id,
+        console_id: a.p_console_id, status: "active", start_at: start, expected_return_at: expected,
+        condition_out: condition, notes: a.p_notes ?? null,
+      });
+    }
+    upd("consoles", consoleRow.id, { status: "rented" });
+    upd("bookings", booking.id, { status: "delivered" });
+    return rental;
+  }
+
+  function rpcReturn(a) {
+    const rental = byId("rentals", a.p_rental_id);
+    if (!rental) fail("P0002", "rental_not_found");
+    if (!["active", "overdue"].includes(rental.status)) fail("P0001", "rental_not_active");
+    const actual = a.p_actual_return_at ?? now();
+    if (rental.start_at && Date.parse(actual) < Date.parse(rental.start_at)) fail("P0001", "invalid_input");
+    const fee = a.p_late_fee ?? rental.late_fee ?? 0;
+    if (!Number.isInteger(fee) || fee < 0) fail("P0001", "invalid_input");
+    const condition = CONDITIONS.includes(a.p_condition_in) ? a.p_condition_in : null;
+    const updated = upd("rentals", rental.id, {
+      status: "returned", actual_return_at: actual, late_fee: fee,
+      condition_in: condition ?? rental.condition_in ?? null, notes: a.p_notes ?? rental.notes ?? null,
+    });
+    if (rental.console_id) {
+      const con = byId("consoles", rental.console_id);
+      upd("consoles", rental.console_id, { status: "available", condition_grade: condition ?? con.condition_grade });
+    }
+    upd("bookings", rental.booking_id, { status: "completed" });
+    return updated;
+  }
+
+  function rpcSettle(a, sign) {
+    const booking = byId("bookings", a.p_booking_id);
+    if (!booking) fail("P0002", "booking_not_found");
+    const settled = tables.payments
+      .filter((p) => p.booking_id === booking.id && p.status === "settled")
+      .reduce((s, p) => s + p.amount, 0);
+    const amount = sign > 0 ? booking.total - settled : -settled;
+    const flag = sign > 0 ? "paid" : "unpaid";
+    if (sign > 0 ? amount <= 0 : settled <= 0) {
+      if (booking.payment_status !== flag) upd("bookings", booking.id, { payment_status: flag });
+      return null;
+    }
+    let payment = null;
+    for (let i = 0; i < 3 && !payment; i += 1) {
+      const result = new Builder("payments", "insert").insert({
+        id: crypto.randomUUID(), ref: ledgerRef(), customer_id: booking.customer_id, booking_id: booking.id,
+        amount, kind: sign > 0 ? "rental" : "adjustment",
+        method: booking.payment_method === "cod" ? "cod" : "mpesa", status: "settled",
+        notes: sign > 0 ? "Booking marked paid" : "Reversal: booking marked unpaid", recorded_by: actorGuc,
+      }).run();
+      if (!result.error) payment = result.data;
+      else if (result.error.code !== "23505") throw result.error;
+    }
+    if (!payment) fail("23505", "duplicate payments.ref");
+    upd("bookings", booking.id, { payment_status: flag });
+    return payment;
+  }
+
+  function rpcAdminUpdateBooking(a) {
+    if (a.p_status != null && !["pending", "confirmed", "delivered", "completed", "cancelled"].includes(a.p_status)) fail("P0001", "invalid_input");
+    if (a.p_payment_status != null && !["unpaid", "paid"].includes(a.p_payment_status)) fail("P0001", "invalid_input");
+    if (a.p_notes != null && String(a.p_notes).length > 1000) fail("P0001", "invalid_input");
+    if (a.p_status == null && a.p_payment_status == null && a.p_notes == null && !a.p_clear_notes) fail("P0001", "invalid_input");
+    const booking = byId("bookings", a.p_booking_id);
+    if (!booking) fail("P0002", "booking_not_found");
+    if (a.p_payment_status != null && a.p_payment_status !== booking.payment_status) {
+      rpcSettle({ p_booking_id: booking.id }, a.p_payment_status === "paid" ? 1 : -1);
+    }
+    return upd("bookings", booking.id, {
+      status: a.p_status ?? booking.status,
+      notes: a.p_clear_notes ? null : (a.p_notes ?? booking.notes ?? null),
+    });
+  }
+
+  function rpcAdminUpdateCustomer(a) {
+    if (a.p_customer_tier != null && !["basic", "standard", "premium"].includes(a.p_customer_tier)) fail("P0001", "invalid_input");
+    if (a.p_customer_status != null && !["active", "suspended", "blacklisted"].includes(a.p_customer_status)) fail("P0001", "invalid_input");
+    if (a.p_credit_limit != null && (!Number.isInteger(a.p_credit_limit) || a.p_credit_limit < 0 || a.p_credit_limit > 100000000)) fail("P0001", "invalid_input");
+    if (a.p_notes != null && String(a.p_notes).length > 1000) fail("P0001", "invalid_input");
+    if (a.p_customer_tier == null && a.p_credit_limit == null && a.p_customer_status == null && a.p_notes == null && !a.p_clear_notes) fail("P0001", "invalid_input");
+    const customer = byId("customers", a.p_customer_id);
+    if (!customer) fail("P0002", "customer_not_found");
+    const tier = a.p_customer_tier ?? customer.customer_tier;
+    let limit = a.p_credit_limit ?? customer.credit_limit;
+    if (tier !== "premium") limit = 0;
+    const updated = upd("customers", customer.id, {
+      customer_tier: tier, credit_limit: limit,
+      customer_status: a.p_customer_status ?? customer.customer_status,
+      notes: a.p_clear_notes ? null : (a.p_notes ?? customer.notes ?? null),
+    });
+    if (updated.auth_user_id && byId("profiles", updated.auth_user_id)) {
+      upd("profiles", updated.auth_user_id, { tier: tier === "premium" ? "premium" : "standard" });
+    }
+    return updated;
+  }
+
+  function rpcCustomerSummaries() {
+    return tables.customers.map((c) => {
+      const bs = tables.bookings.filter((b) => b.customer_id === c.id);
+      const newest = [...bs].sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)) || String(y.id).localeCompare(String(x.id)))[0];
+      const spend = tables.payments
+        .filter((p) => p.customer_id === c.id && p.status === "settled" && p.amount > 0)
+        .reduce((s, p) => s + p.amount, 0);
+      const lastBooking = bs.reduce((m, b) => (String(b.created_at) > m ? String(b.created_at) : m), "");
+      return {
+        customer_id: c.id, bookings: bs.length, spend,
+        open: bs.filter((b) => ["pending", "confirmed", "delivered"].includes(b.status)).length,
+        zone_key: newest?.zone_key ?? null,
+        last_at: lastBooking > String(c.created_at) ? lastBooking : c.created_at,
+      };
+    });
+  }
+
+  function rpcRevenueStats() {
+    const eatDate = (iso) => new Date(Date.parse(iso) + 3 * 3600000).toISOString().slice(0, 10);
+    const today = eatDate(now());
+    const settled = tables.payments.filter((p) => p.status === "settled");
+    return [{
+      revenue: settled.reduce((s, p) => s + p.amount, 0),
+      revenue_today: settled.filter((p) => eatDate(p.occurred_at ?? p.created_at) === today).reduce((s, p) => s + p.amount, 0),
+    }];
+  }
+
+  const ATOMIC_RPCS = {
+    resolve_guest_customer: rpcResolveGuest,
+    handover_rental: rpcHandover,
+    return_rental: rpcReturn,
+    settle_booking: (a) => rpcSettle(a, 1),
+    unsettle_booking: (a) => rpcSettle(a, -1),
+    admin_update_booking: rpcAdminUpdateBooking,
+    admin_update_customer: rpcAdminUpdateCustomer,
+  };
+
   const supabase = {
     from(table) {
       if (!Object.hasOwn(tables, table)) throw new Error(`unexpected table ${table}`);
@@ -211,10 +427,24 @@ export function createFakeSupabase() {
         select: (cols, opts) => new Builder(table, "select").select(cols, opts),
         insert: (row) => new Builder(table, "insert").insert(row),
         update: (fields) => new Builder(table, "update").update(fields),
+        delete: () => new Builder(table, "delete"),
       };
     },
     async rpc(fn, args = {}) {
       try {
+        if (Object.hasOwn(ATOMIC_RPCS, fn)) {
+          actorGuc = args.p_actor ?? "system";
+          try { return { data: atomic(() => ATOMIC_RPCS[fn](args)), error: null }; }
+          finally { actorGuc = "system"; }
+        }
+        if (fn === "outstanding_by_customer") {
+          return { data: tables.customers.map((c) => ({ customer_id: c.id, outstanding: outstanding(c.id) })), error: null };
+        }
+        if (fn === "customer_summaries") return { data: rpcCustomerSummaries(), error: null };
+        if (fn === "revenue_stats") return { data: rpcRevenueStats(), error: null };
+        if (fn === "customer_commitments") {
+          return { data: tables.bookings.filter((b) => b.customer_id === args.p_customer_id && ["pending", "confirmed"].includes(b.status)).reduce((s, b) => s + (b.total ?? 0), 0), error: null };
+        }
         if (fn === "customer_outstanding") return { data: outstanding(args.p_customer_id), error: null };
         if (fn === "assert_credit_available") { assertCredit(args.p_customer_id, args.p_additional_charge ?? 0); return { data: null, error: null }; }
         if (fn === "link_customer_auth") {
