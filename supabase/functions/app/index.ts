@@ -5,6 +5,9 @@
 //   SUPABASE_URL                 e.g. https://poaxanthiifatydqbnqq.supabase.co
 //   SUPABASE_SERVICE_ROLE_KEY    service_role key (bypasses RLS; backend only)
 //   ADMIN_PASSWORD               admin HMAC secret (preserved from the Qoder backend)
+//   ADMIN_TOTP_SECRET            base32 TOTP secret for admin password recovery
+//                                (`node dev/totp-enroll.mjs`). Optional: unset means
+//                                admin_recover fails closed with 503.
 //
 // Required configuration (not secret):
 //   CORS_ORIGINS                 comma-separated browser origin allowlist, e.g.

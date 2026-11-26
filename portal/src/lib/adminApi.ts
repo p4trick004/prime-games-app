@@ -84,3 +84,19 @@ export async function adminLogin(password: string): Promise<void> {
   }
   setAdminToken(data.token, data.expires_at);
 }
+
+// Password recovery with the authenticator-app TOTP code (ADMIN_TOTP_SECRET).
+export async function adminRecover(code: string): Promise<void> {
+  const res = await fetch(`${API_BASE}?action=admin_recover`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  const data = (await res.json().catch(() => null)) as
+    | { token?: string; expires_at?: string; error?: string }
+    | null;
+  if (!res.ok || !data?.token || !data?.expires_at) {
+    throw new Error(data?.error ?? `recover_failed_${res.status}`);
+  }
+  setAdminToken(data.token, data.expires_at);
+}

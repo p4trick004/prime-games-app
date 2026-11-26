@@ -14,6 +14,8 @@ import {
 } from "./lib/core.mjs";
 import { priceBooking, makeRef, makeIncidentRef } from "./lib/pricing.mjs";
 import { currentUser, requireAdmin, hmacSign, safeEqual, issueAdminToken } from "./lib/auth.mjs";
+import { verifyTotp } from "./lib/totp.mjs";
+import { clientKey, throttleStatus, recordFailure, clearThrottle } from "./lib/throttle.mjs";
 import { mapBookings, mapConsoles, mapMaintenance, mapTransactions, mapIncidents } from "./lib/mapping.mjs";
 import {
   resolveGuestCustomer, resolveMemberCustomer, getCustomerByAuth, getProfile,
@@ -26,6 +28,8 @@ import {
 } from "./lib/kyc.mjs";
 
 const BOOKING_PAGE = 25;
+const LOGIN_MAX_FAILURES = 10;
+const RECOVER_MAX_FAILURES = 5;
 
 // ---- generic list helper (filters + guards) ----
 async function listRows(supabase, table, opts) {
@@ -225,14 +229,48 @@ async function handleKycRegister(request, supabase) {
 
 // ============================ ADMIN: auth ============================
 
+function tooManyAttempts(retryAfterSec) {
+  const res = json({ error: "rate_limited" }, 429);
+  res.headers.set("retry-after", String(retryAfterSec));
+  return res;
+}
+
 async function handleAdminLogin(request, env) {
   const password = env("ADMIN_PASSWORD");
   if (!password) return json({ error: "service_not_configured" }, 503);
+  const limitKey = clientKey(request, "admin_login");
+  const gate = throttleStatus(limitKey, LOGIN_MAX_FAILURES);
+  if (gate.blocked) return tooManyAttempts(gate.retryAfterSec);
   const body = await readJsonBody(request);
   if (!body || typeof body.password !== "string" || body.password.length > 512) return bad();
   const a = await hmacSign(password, `login-check:${body.password}`);
   const b = await hmacSign(password, `login-check:${password}`);
-  if (!safeEqual(a, b)) return json({ error: "invalid_credentials" }, 401);
+  if (!safeEqual(a, b)) {
+    recordFailure(limitKey);
+    return json({ error: "invalid_credentials" }, 401);
+  }
+  clearThrottle(limitKey);
+  const { token, expires_at } = await issueAdminToken(password);
+  return json({ ok: true, token, expires_at });
+}
+
+// Password recovery via authenticator-app TOTP. Fails closed unless
+// ADMIN_TOTP_SECRET is configured; returns the same admin session token as login.
+async function handleAdminRecover(request, env) {
+  const password = env("ADMIN_PASSWORD");
+  if (!password) return json({ error: "service_not_configured" }, 503);
+  const totpSecret = env("ADMIN_TOTP_SECRET");
+  if (!totpSecret) return json({ error: "recovery_not_configured" }, 503);
+  const limitKey = clientKey(request, "admin_recover");
+  const gate = throttleStatus(limitKey, RECOVER_MAX_FAILURES);
+  if (gate.blocked) return tooManyAttempts(gate.retryAfterSec);
+  const body = await readJsonBody(request);
+  if (!body || typeof body.code !== "string" || body.code.length > 16) return bad();
+  if (!(await verifyTotp(totpSecret, body.code))) {
+    recordFailure(limitKey);
+    return json({ error: "invalid_code" }, 401);
+  }
+  clearThrottle(limitKey);
   const { token, expires_at } = await issueAdminToken(password);
   return json({ ok: true, token, expires_at });
 }
@@ -968,6 +1006,10 @@ async function dispatch({ request, supabase, env }) {
     if (action === "admin_login") {
       if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
       return await handleAdminLogin(request, env);
+    }
+    if (action === "admin_recover") {
+      if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+      return await handleAdminRecover(request, env);
     }
     if (typeof action === "string" && action.startsWith("admin_")) {
       const denied = await requireAdmin(request, env);

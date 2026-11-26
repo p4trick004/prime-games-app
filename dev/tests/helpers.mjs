@@ -9,11 +9,11 @@ export const ADMIN_PASSWORD = "test-admin-password";
 export const ORIGIN = "https://portal.test";
 export const ISSUER = "https://auth.test";
 
-export function setup() {
+export function setup(overrides = {}) {
   setTestIssuer(ISSUER);
   configureAuth({ issuer: ISSUER, jwksUrl: testJwksUrl() });
   const supabase = createFakeSupabase();
-  const values = { ADMIN_PASSWORD, CORS_ORIGINS: ORIGIN };
+  const values = { ADMIN_PASSWORD, CORS_ORIGINS: ORIGIN, ...overrides };
   return { supabase, env: (n) => values[n] };
 }
 
