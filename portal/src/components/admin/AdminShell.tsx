@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ADMIN_NAV, MOBILE_TABS } from "../../lib/adminNav";
 import { adminApi } from "../../lib/adminApi";
@@ -117,6 +117,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   useEffect(() => { setDrawer(false); }, [location.pathname]);
 
+  // Leaving for the public site ends the admin session, so returning to the
+  // console requires the password (and authenticator code) again.
+  function viewSite(e: ReactMouseEvent<HTMLAnchorElement>) {
+    e.preventDefault();
+    logout();
+    window.location.assign("/");
+  }
+
   useEffect(() => {
     let alive = true;
     const load = () => {
@@ -150,7 +158,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
           <div className="adm-nav-group">Site</div>
-          <a className="nav-item" href="/"><Ic name="logout" /> View public site</a>
+          <a className="nav-item" href="/" onClick={viewSite}><Ic name="logout" /> View public site</a>
         </nav>
         <div className="side-user">
           <span className="avatar">PG</span>
