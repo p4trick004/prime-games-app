@@ -253,6 +253,11 @@
             </dl>
             <p class="sum-total"><span data-i18n="sum.total">Total due</span><strong id="sumTotal">—</strong></p>
             <p class="sum-note" id="sumNote" hidden data-i18n="sum.tbdNote">Delivery fee for unlisted areas is agreed with the rider on confirmation and added to this total.</p>
+            <div class="sum-sent" id="sumSent" hidden>
+              <p class="sum-sent-head"><span class="sum-sent-check" aria-hidden="true">✓</span><span data-i18n="conf.sentTitle">Booking sent!</span></p>
+              <p class="sum-ref"><span data-i18n="conf.refLabel">Booking reference</span><strong id="sumRef"></strong></p>
+              <p class="sum-sent-sub" data-i18n="conf.sentSub">Your booking was sent to us automatically — we confirm within 30 minutes (8:00–22:00 EAT).</p>
+            </div>
           </aside>
         </div>
 
@@ -263,7 +268,6 @@
             <h3 id="confTitle">Booking sent!</h3>
           </div>
           <p id="confSub">Your booking was sent to us automatically — we confirm within 30 minutes (8:00–22:00 EAT).</p>
-          <p class="conf-ref" id="confRefRow" hidden><span id="confRefLabel">Booking reference:</span> <strong id="confRef"></strong></p>
           <pre id="confirmSummary" class="confirm-summary"></pre>
           <div class="confirm-steps">
             <h4 data-i18n="conf.stepsTitle">What happens next</h4>

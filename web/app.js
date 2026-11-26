@@ -396,11 +396,8 @@ function renderConfirmation(b) {
   const check = $("#confCheck");
   check.textContent = b.sent ? "✓" : "!";
   check.classList.toggle("is-error", !b.sent);
-  $("#confRefRow").hidden = !b.sent;
-  if (b.sent) {
-    $("#confRefLabel").textContent = `${t("conf.refLabel")}:`;
-    $("#confRef").textContent = b.ref;
-  }
+  $("#sumSent").hidden = !b.sent;
+  if (b.sent) $("#sumRef").textContent = b.ref;
   $("#whatsappLink").hidden = b.sent;
   $("#whatsappLink").textContent = t("conf.wa");
   $("#confRetry").hidden = b.sent !== false;
@@ -578,8 +575,14 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     renderConfirmation(lastBooking);
     const panel = $("#confirmPanel");
-    panel.hidden = false;
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (sent) {
+      // The reference lives in "Your rental"; no duplicate confirmation card.
+      panel.hidden = true;
+      $("#sumSent").scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      panel.hidden = false;
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   });
 
   $("#confRetry").addEventListener("click", async () => {
@@ -587,6 +590,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const { sent, result } = await sendBooking(lastPayload);
     lastBooking = { ...lastBooking, sent, ref: result ? result.ref : lastBooking.ref };
     renderConfirmation(lastBooking);
+    if (sent) {
+      $("#confirmPanel").hidden = true;
+      $("#sumSent").scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   });
 
   $("#backToForm").addEventListener("click", () => {

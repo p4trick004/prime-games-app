@@ -227,6 +227,13 @@ h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.2; margin: 0 0
 .sum-total span { color: var(--text-dim); font-size: .9rem; }
 .sum-total strong { font-family: var(--font-display); font-size: 1.45rem; color: var(--blue); }
 .sum-note { font-size: .85rem; color: var(--text-dim); background: rgba(46, 155, 255, .07); border: 1px solid rgba(46, 155, 255, .22); border-radius: 10px; padding: 10px 12px; margin: 0; }
+.sum-sent { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.sum-sent-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: var(--text); }
+.sum-sent-check { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--green); color: #06281a; font-weight: 800; font-size: .85rem; flex-shrink: 0; }
+.sum-ref { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0; padding: 10px 12px; font-size: .9rem; background: rgba(46, 155, 255, .08); border: 1px solid rgba(46, 155, 255, .28); border-radius: 10px; }
+.sum-ref span { color: var(--text-dim); }
+.sum-ref strong { font-family: var(--font-display); font-size: 1.05rem; color: var(--blue); letter-spacing: .02em; }
+.sum-sent-sub { font-size: .85rem; color: var(--text-dim); margin: 10px 0 0; }
 
 /* Confirmation */
 .confirm-panel {
@@ -355,8 +362,6 @@ h1, h2, h3, h4 { font-family: var(--font-display); line-height: 1.2; margin: 0 0
 
 /* Confirmation states (sent / failed) */
 .confirm-check.is-error { background: rgba(255, 99, 99, .15); color: #ff6b6b; border-color: rgba(255, 107, 107, .4); }
-.conf-ref { margin: 4px 0 0; color: var(--text-dim); }
-.conf-ref strong { color: var(--blue); font-size: 1.15rem; letter-spacing: .06em; }
 
 /* Admin */
 .admin-badge {
