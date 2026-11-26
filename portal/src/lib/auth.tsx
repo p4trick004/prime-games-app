@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase, demoMode, demoGet, demoSignIn, demoSignUp, demoSignOut, type Profile } from "./supabase";
+import { supabase, demoMode, demoGet, demoSignIn, demoSignUp, demoSignOut, takeRecoveryHandoff, resetRedirectUrl, type Profile } from "./supabase";
 
 interface AuthCtx {
   session: Session | null;
@@ -12,6 +12,9 @@ interface AuthCtx {
   signOut: () => Promise<void>;
   updateProfile: (patch: Partial<Profile>) => Promise<string | null>;
   refreshProfile: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<string | null>;
+  adoptRecovery: () => Promise<boolean>;
+  completePasswordReset: (password: string) => Promise<string | null>;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -122,6 +125,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (session) setProfile(await loadProfile(session.user.id));
+    },
+    requestPasswordReset: async (email) => {
+      if (demoMode) return null;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: resetRedirectUrl() });
+      if (!error) return null;
+      // Swallow "user not found" so the form can't be used to probe accounts;
+      // still surface throttling so the user knows to retry later.
+      const msg = error.message.toLowerCase();
+      return msg.includes("rate limit") || msg.includes("security purposes") ? error.message : null;
+    },
+    adoptRecovery: async () => {
+      if (demoMode) return true;
+      const tokens = takeRecoveryHandoff();
+      if (!tokens) return false;
+      const { error } = await supabase.auth.setSession(tokens);
+      return !error;
+    },
+    completePasswordReset: async (password) => {
+      if (demoMode) return null;
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) return error.message;
+      await supabase.auth.signOut();
+      return null;
     },
   }), [session, profile, loading]);
 

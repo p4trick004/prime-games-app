@@ -5,6 +5,7 @@ import { CustomerProvider } from "./lib/customer";
 import { Shell } from "./components/Shell";
 import { Spinner } from "./components/ui";
 import { Login, Register } from "./pages/Auth";
+import { ResetPassword } from "./pages/ResetPassword";
 import { Dashboard } from "./pages/Dashboard";
 import { Browse } from "./pages/Browse";
 import { Bookings } from "./pages/Bookings";
@@ -71,6 +72,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
             <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/browse" element={<Protected><Browse /></Protected>} />
             <Route path="/bookings" element={<Protected><Bookings /></Protected>} />

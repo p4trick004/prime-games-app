@@ -38,7 +38,7 @@ admin operations console.
 ├── dev/                    # Local harnesses, test suite, TOTP enrollment
 ├── web/                    # Static landing + built portal
 │   ├── index.html          # Landing (source)
-│   ├── aliases/            # /book, /admin, /admin/login route aliases (Vercel rewrites)
+│   ├── aliases/            # /book, /admin, /admin/login, /reset-password (Vercel rewrites)
 │   ├── site-config.js      # Host-aware portal/API wiring
 │   ├── app/                # Local portal build (gitignored)
 │   └── portal/             # Vercel portal build (gitignored)
@@ -162,6 +162,21 @@ Locally, the same enrollment works against the in-memory fixture:
 ADMIN_PASSWORD='<new-password>' node dev/edge-server.mjs
 # sign in, then Admin → Security → Set up authenticator
 ```
+
+## Customer password reset
+
+Customers reset their own password from the portal sign-in screen
+(**Forgot password?** → email → link). Requesting a link never reveals whether
+an account exists; only throttling errors are surfaced. The emailed Supabase
+recovery link lands on `/reset-password`, a static hand-off page
+(`web/aliases/reset-password.html`) that moves the session tokens out of the
+URL fragment into `sessionStorage` and opens the SPA route `#/reset-password`,
+where the customer picks a new password (the session is then signed out).
+
+Supabase Auth must allow that URL, or the email link falls back to the Site URL
+and cannot complete. In **Authentication → URL Configuration**: set the Site
+URL to the live production domain and add `https://<domain>/**` to the redirect
+allowlist.
 
 ## Migration roadmap
 

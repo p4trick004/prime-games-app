@@ -5,6 +5,7 @@
   "outputDirectory": "web",
   "rewrites": [
     { "source": "/book", "destination": "/aliases/book.html" },
+    { "source": "/reset-password", "destination": "/aliases/reset-password.html" },
     { "source": "/admin/login", "destination": "/aliases/admin-login.html" },
     { "source": "/admin", "destination": "/aliases/admin.html" }
   ]

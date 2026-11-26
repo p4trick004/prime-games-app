@@ -24,6 +24,33 @@ export interface Profile {
 // Never active in production builds (SUPABASE_CONFIGURED is true there).
 export const demoMode = import.meta.env.DEV && !SUPABASE_CONFIGURED;
 
+// Supabase recovery links (implicit flow) land on /reset-password with the
+// tokens in the URL fragment. A static page there moves them into sessionStorage
+// because HashRouter cannot read the fragment itself.
+const RECOVERY_HANDOFF_KEY = "pg_recovery";
+
+export function resetRedirectUrl(): string {
+  return `${window.location.origin}/reset-password`;
+}
+
+export function takeRecoveryHandoff(): { access_token: string; refresh_token: string } | null {
+  let raw: string | null = null;
+  try {
+    raw = sessionStorage.getItem(RECOVERY_HANDOFF_KEY);
+    if (raw) sessionStorage.removeItem(RECOVERY_HANDOFF_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { access_token?: unknown; refresh_token?: unknown };
+    if (typeof parsed.access_token !== "string" || typeof parsed.refresh_token !== "string") return null;
+    return { access_token: parsed.access_token, refresh_token: parsed.refresh_token };
+  } catch {
+    return null;
+  }
+}
+
 const demoStore = {
   session: null as Session | null,
   profile: null as Profile | null,
