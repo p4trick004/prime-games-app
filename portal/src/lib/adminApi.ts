@@ -85,7 +85,8 @@ export async function adminLogin(password: string): Promise<void> {
   setAdminToken(data.token, data.expires_at);
 }
 
-// Password recovery with the authenticator-app TOTP code (ADMIN_TOTP_SECRET).
+// Password recovery with the enrolled authenticator app (TOTP). The secret is
+// enrolled at Admin → Security and stored server-side; codes are verified there.
 export async function adminRecover(code: string): Promise<void> {
   const res = await fetch(`${API_BASE}?action=admin_recover`, {
     method: "POST",
@@ -99,4 +100,31 @@ export async function adminRecover(code: string): Promise<void> {
     throw new Error(data?.error ?? `recover_failed_${res.status}`);
   }
   setAdminToken(data.token, data.expires_at);
+}
+
+export interface AdminTotpStatus {
+  active: boolean;
+  activated_at: string | null;
+  pending: boolean;
+}
+
+export interface AdminTotpSetup {
+  secret: string;
+  otpauth_uri: string;
+  issuer: string;
+  account: string;
+  digits: number;
+  period: number;
+}
+
+export function adminTotpStatus(): Promise<AdminTotpStatus> {
+  return adminApi<AdminTotpStatus>("admin_totp_status");
+}
+
+export function adminTotpSetup(): Promise<AdminTotpSetup> {
+  return adminApi<AdminTotpSetup>("admin_totp_setup", { method: "POST", body: {} });
+}
+
+export function adminTotpVerify(code: string): Promise<{ ok: true; active: true; activated_at: string }> {
+  return adminApi("admin_totp_verify", { method: "POST", body: { code } });
 }

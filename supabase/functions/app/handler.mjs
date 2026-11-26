@@ -14,7 +14,7 @@ import {
 } from "./lib/core.mjs";
 import { priceBooking, makeRef, makeIncidentRef } from "./lib/pricing.mjs";
 import { currentUser, requireAdmin, hmacSign, safeEqual, issueAdminToken } from "./lib/auth.mjs";
-import { verifyTotp } from "./lib/totp.mjs";
+import { verifyTotp, base32Encode, TOTP_DIGITS, TOTP_PERIOD } from "./lib/totp.mjs";
 import { clientKey, throttleStatus, recordFailure, clearThrottle } from "./lib/throttle.mjs";
 import { mapBookings, mapConsoles, mapMaintenance, mapTransactions, mapIncidents } from "./lib/mapping.mjs";
 import {
@@ -30,6 +30,10 @@ import {
 const BOOKING_PAGE = 25;
 const LOGIN_MAX_FAILURES = 10;
 const RECOVER_MAX_FAILURES = 5;
+const TOTP_MAX_FAILURES = 5;
+const TOTP_SETTINGS_ID = "totp";
+const TOTP_ISSUER = "Prime Games";
+const TOTP_ACCOUNT = "admin";
 
 // ---- generic list helper (filters + guards) ----
 async function listRows(supabase, table, opts) {
@@ -254,19 +258,102 @@ async function handleAdminLogin(request, env) {
   return json({ ok: true, token, expires_at });
 }
 
-// Password recovery via authenticator-app TOTP. Fails closed unless
-// ADMIN_TOTP_SECRET is configured; returns the same admin session token as login.
-async function handleAdminRecover(request, env) {
+// ---- authenticator (TOTP) enrollment --------------------------------------
+// The secret lives in admin_settings (service_role only, migration 0014).
+// Enrollment is two-step: admin_totp_setup stores a pending secret and returns
+// it once for the QR/manual key; admin_totp_verify activates it only after a
+// code from the connected app matches. The active secret is never returned.
+
+async function readTotpSettings(supabase) {
+  const { data, error } = await supabase.from("admin_settings").select("*")
+    .eq("id", TOTP_SETTINGS_ID).maybeSingle();
+  if (error) return { failed: true };
+  return { row: data ?? null };
+}
+
+async function writeTotpSettings(supabase, fields) {
+  const existing = await readTotpSettings(supabase);
+  if (existing.failed) return false;
+  const patch = { ...fields, updated_at: new Date().toISOString() };
+  const { error } = existing.row
+    ? await supabase.from("admin_settings").update(patch).eq("id", TOTP_SETTINGS_ID)
+    : await supabase.from("admin_settings").insert({ id: TOTP_SETTINGS_ID, ...patch });
+  return !error;
+}
+
+function otpauthUri(secret) {
+  const label = `${encodeURIComponent(TOTP_ISSUER)}:${encodeURIComponent(TOTP_ACCOUNT)}`;
+  return `otpauth://totp/${label}?secret=${secret}`
+    + `&issuer=${encodeURIComponent(TOTP_ISSUER)}&algorithm=SHA1`
+    + `&digits=${TOTP_DIGITS}&period=${TOTP_PERIOD}`;
+}
+
+async function handleAdminTotpStatus(_request, supabase) {
+  const { row, failed: dbFailed } = await readTotpSettings(supabase);
+  if (dbFailed) return failed();
+  return json({
+    active: Boolean(row?.totp_secret),
+    activated_at: row?.totp_activated_at ?? null,
+    pending: Boolean(row?.totp_pending_secret),
+  });
+}
+
+async function handleAdminTotpSetup(_request, supabase) {
+  const secret = base32Encode(crypto.getRandomValues(new Uint8Array(20)));
+  const ok = await writeTotpSettings(supabase, {
+    totp_pending_secret: secret,
+    totp_pending_issued_at: new Date().toISOString(),
+  });
+  if (!ok) return failed();
+  return json({
+    secret,
+    otpauth_uri: otpauthUri(secret),
+    issuer: TOTP_ISSUER,
+    account: TOTP_ACCOUNT,
+    digits: TOTP_DIGITS,
+    period: TOTP_PERIOD,
+  });
+}
+
+async function handleAdminTotpVerify(request, supabase) {
+  const { row, failed: dbFailed } = await readTotpSettings(supabase);
+  if (dbFailed) return failed();
+  if (!row?.totp_pending_secret) return json({ error: "setup_required" }, 400);
+  const limitKey = clientKey(request, "admin_totp_verify");
+  const gate = throttleStatus(limitKey, TOTP_MAX_FAILURES);
+  if (gate.blocked) return tooManyAttempts(gate.retryAfterSec);
+  const body = await readJsonBody(request);
+  if (!body || typeof body.code !== "string" || body.code.length > 16) return bad();
+  if (!(await verifyTotp(row.totp_pending_secret, body.code))) {
+    recordFailure(limitKey);
+    return json({ error: "invalid_code" }, 401);
+  }
+  clearThrottle(limitKey);
+  const activatedAt = new Date().toISOString();
+  const ok = await writeTotpSettings(supabase, {
+    totp_secret: row.totp_pending_secret,
+    totp_activated_at: activatedAt,
+    totp_pending_secret: null,
+    totp_pending_issued_at: null,
+  });
+  if (!ok) return failed();
+  return json({ ok: true, active: true, activated_at: activatedAt });
+}
+
+// Password recovery via the enrolled authenticator app. Fails closed until an
+// admin completes enrollment; issues the same admin session token as login.
+async function handleAdminRecover(request, env, supabase) {
   const password = env("ADMIN_PASSWORD");
   if (!password) return json({ error: "service_not_configured" }, 503);
-  const totpSecret = env("ADMIN_TOTP_SECRET");
-  if (!totpSecret) return json({ error: "recovery_not_configured" }, 503);
+  const { row, failed: dbFailed } = await readTotpSettings(supabase);
+  if (dbFailed) return failed();
+  if (!row?.totp_secret || !row.totp_activated_at) return json({ error: "recovery_not_configured" }, 503);
   const limitKey = clientKey(request, "admin_recover");
   const gate = throttleStatus(limitKey, RECOVER_MAX_FAILURES);
   if (gate.blocked) return tooManyAttempts(gate.retryAfterSec);
   const body = await readJsonBody(request);
   if (!body || typeof body.code !== "string" || body.code.length > 16) return bad();
-  if (!(await verifyTotp(totpSecret, body.code))) {
+  if (!(await verifyTotp(row.totp_secret, body.code))) {
     recordFailure(limitKey);
     return json({ error: "invalid_code" }, 401);
   }
@@ -968,6 +1055,7 @@ const ADMIN_GET = {
   admin_incidents: handleAdminIncidents,
   admin_kyc: handleAdminKyc,
   admin_kyc_url: handleAdminKycUrl,
+  admin_totp_status: handleAdminTotpStatus,
 };
 const ADMIN_POST = {
   admin_booking_update: handleAdminBookingUpdate,
@@ -989,6 +1077,8 @@ const ADMIN_POST = {
   admin_incident_create: handleAdminIncidentCreate,
   admin_incident_update: handleAdminIncidentUpdate,
   admin_kyc_verify: handleAdminKycVerify,
+  admin_totp_setup: handleAdminTotpSetup,
+  admin_totp_verify: handleAdminTotpVerify,
 };
 
 async function dispatch({ request, supabase, env }) {
@@ -1009,7 +1099,7 @@ async function dispatch({ request, supabase, env }) {
     }
     if (action === "admin_recover") {
       if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-      return await handleAdminRecover(request, env);
+      return await handleAdminRecover(request, env, supabase);
     }
     if (typeof action === "string" && action.startsWith("admin_")) {
       const denied = await requireAdmin(request, env);

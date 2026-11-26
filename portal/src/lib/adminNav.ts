@@ -16,6 +16,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { to: "/admin/inventory", label: "Inventory", icon: "box", title: "Inventory & Maintenance", tab: "Inventory" },
   { to: "/admin/games", label: "Games Catalog", icon: "gamepad", title: "Games Catalog", tab: "Games" },
   { to: "/admin/payments", label: "Payments", icon: "card", title: "Cashflows, Returns & Claims", tab: "Payments" },
+  { to: "/admin/security", label: "Security", icon: "shield", title: "Security & Recovery", tab: "Security" },
 ];
 
 // Bottom tab bar on small screens: the four busiest screens, rest behind "More".

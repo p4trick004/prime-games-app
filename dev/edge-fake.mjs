@@ -13,6 +13,7 @@ const TABLES = [
   "customers", "customer_links", "customer_contact_history", "customer_credit_events",
   "bookings", "booking_games", "rentals", "payments", "consoles", "games",
   "maintenance", "incidents", "kyc_documents", "kyc_audit", "profiles",
+  "admin_settings",
 ];
 
 // Nullable unique columns only enforced when the value is non-null.
@@ -32,6 +33,7 @@ const UNIQUE = {
   kyc_documents: [["id"], ["storage_path"]],
   kyc_audit: [["id"]],
   profiles: [["id"]],
+  admin_settings: [["id"]],
 };
 
 const LIABILITY = ["damage", "loss", "theft", "late_return"];

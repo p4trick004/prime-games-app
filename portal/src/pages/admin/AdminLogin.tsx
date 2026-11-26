@@ -26,7 +26,7 @@ export function AdminLogin() {
       return "Could not reach the server. Try again.";
     }
     if (text === "invalid_code") return "That code didn't match. Check the code in your authenticator app.";
-    if (text === "recovery_not_configured") return "Recovery isn't configured on this server yet.";
+    if (text === "recovery_not_configured") return "No authenticator app is connected yet. Sign in with the password, then set one up under Admin → Security.";
     return "Could not reach the server. Try again.";
   }
 

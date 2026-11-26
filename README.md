@@ -65,8 +65,8 @@ node dev/edge-server.mjs 4174
 This serves `web/` at `http://127.0.0.1:4174` and the API at
 `/functions/v1/app`, running the real Supabase handler against an **empty
 in-memory fixture database**. Fixture admin password: `local-test-admin`
-(local only). Pass `ADMIN_PASSWORD` / `ADMIN_TOTP_SECRET` in the environment to
-exercise other credentials.
+(local only). Pass `ADMIN_PASSWORD` in the environment to exercise another
+credential; authenticator enrollment happens in the console (Admin → Security).
 
 For React hot reload, run the portal dev server in a second terminal:
 
@@ -109,10 +109,13 @@ frontend env.
 | Variable | Purpose |
 | --- | --- |
 | `ADMIN_PASSWORD` | Admin operations password (HMAC key for admin tokens) |
-| `ADMIN_TOTP_SECRET` | Base32 TOTP secret for admin recovery (optional) |
 | `SUPABASE_URL` | Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, server-side only |
 | `CORS_ORIGINS` | Comma-separated browser origin allowlist (fail-closed) |
+
+The authenticator secret is **not** an environment variable: it is enrolled from
+the admin console and stored in `public.admin_settings` (migration 0014,
+service_role only).
 
 ## Security
 
@@ -132,24 +135,32 @@ supabase secrets set ADMIN_PASSWORD='<new-password>'
 Rotating it invalidates every issued admin token, because tokens are HMAC'd with
 it (`x-admin-token`, 12 h TTL).
 
-Password recovery uses a TOTP code from an authenticator app. Enroll once:
+Password recovery uses a code from an authenticator app. The app is connected
+from the admin console, never from a shared secret in the repo or environment:
+
+1. Sign in at `/admin/login` with the admin password.
+2. Open **Admin → Security** and choose *Set up authenticator*.
+3. Scan the QR code (or type the displayed key) into Google Authenticator /
+   Authy / 1Password.
+4. Enter the current 6-digit code to activate it.
+
+Until enrollment is verified, `admin_recover` fails closed
+(`503 recovery_not_configured`) and the login screen says no authenticator is
+connected. The secret is stored server-side in `admin_settings`
+(service_role-only; migration 0014) and is never returned to the browser after
+setup. *Replace authenticator* keeps the old app working until the new one
+verifies. Treat the authenticator entry as a second credential: anyone with a
+current code can sign in. `admin_login`, `admin_recover`, and
+`admin_totp_verify` are throttled per client IP (best effort, per warm instance).
+
+If both the password and the authenticator are lost, rotate
+`ADMIN_PASSWORD` with `supabase secrets set`.
+
+Locally, the same enrollment works against the in-memory fixture:
 
 ```bash
-node dev/totp-enroll.mjs
-# scan the printed otpauth:// URI into Google Authenticator / Authy / 1Password
-supabase secrets set ADMIN_TOTP_SECRET=<printed base32 secret>
-```
-
-With `ADMIN_TOTP_SECRET` unset, `admin_recover` fails closed
-(`503 recovery_not_configured`). Treat the authenticator entry as a second
-credential: anyone with a current code can sign in. Both `admin_login` and
-`admin_recover` are throttled per client IP (best effort, per warm instance).
-
-For local development pass the same values to the harness:
-
-```bash
-ADMIN_PASSWORD='<new-password>' ADMIN_TOTP_SECRET=<secret> node dev/edge-server.mjs
-node dev/totp-enroll.mjs --code <secret>   # current code, for manual testing
+ADMIN_PASSWORD='<new-password>' node dev/edge-server.mjs
+# sign in, then Admin → Security → Set up authenticator
 ```
 
 ## Migration roadmap

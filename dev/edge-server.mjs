@@ -19,7 +19,6 @@ const PORT = Number(process.argv[2] || 4175);
 const WEB_ROOT = join(import.meta.dirname, "..", "web");
 const ENV = {
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD ?? "local-test-admin",
-  ADMIN_TOTP_SECRET: process.env.ADMIN_TOTP_SECRET ?? "",
   // Harness only: the vite portal dev server (4175) proxies /functions here.
   CORS_ORIGINS: [PORT, 4175].flatMap((p) => [`http://127.0.0.1:${p}`, `http://localhost:${p}`]).join(","),
 };
@@ -74,5 +73,4 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`Prime Games dev server: http://127.0.0.1:${PORT}/ (portal: /app/index.html, fixture password: ${ENV.ADMIN_PASSWORD})`);
-  if (!ENV.ADMIN_TOTP_SECRET) console.log("admin_recover disabled: set ADMIN_TOTP_SECRET (node dev/totp-enroll.mjs)");
 });

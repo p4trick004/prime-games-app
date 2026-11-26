@@ -22,6 +22,7 @@ import { AdminCustomers } from "./pages/admin/AdminCustomers";
 import { AdminInventory } from "./pages/admin/AdminInventory";
 import { AdminGames } from "./pages/admin/AdminGames";
 import { AdminPayments } from "./pages/admin/AdminPayments";
+import { AdminSecurity } from "./pages/admin/AdminSecurity";
 
 function Protected({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
@@ -53,6 +54,7 @@ function AdminArea() {
           <Route path="inventory" element={<AdminInventory />} />
           <Route path="games" element={<AdminGames />} />
           <Route path="payments" element={<AdminPayments />} />
+          <Route path="security" element={<AdminSecurity />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
       </AdminShell>
