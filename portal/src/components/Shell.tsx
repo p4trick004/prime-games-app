@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { GamepadMark, Ic } from "./ui";
 
@@ -25,6 +25,13 @@ export function Shell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const initials = (profile?.full_name ?? "PG").split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
 
+  // Leaving for the public site ends the session so returning to the portal
+  // asks for credentials again.
+  function leavePortal(e: MouseEvent<HTMLAnchorElement>) {
+    e.preventDefault();
+    signOut().finally(() => window.location.assign("/"));
+  }
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -38,7 +45,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <Ic name={n.icon} /> {n.label}
             </NavLink>
           ))}
-          <a className="nav-item" href="/" >
+          <a className="nav-item" href="/" onClick={leavePortal}>
             <Ic name="logout" /> Back to site
           </a>
         </nav>
