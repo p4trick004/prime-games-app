@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd portal && npm ci",
+  "buildCommand": "cd portal && npm run build:vercel",
+  "outputDirectory": "web",
+  "rewrites": [
+    { "source": "/book", "destination": "/aliases/book.html" },
+    { "source": "/admin/login", "destination": "/aliases/admin-login.html" },
+    { "source": "/admin", "destination": "/aliases/admin.html" }
+  ]
+}
