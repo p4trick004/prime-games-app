@@ -4,56 +4,50 @@ Private production application for **Prime Games** (Dar es Salaam): PS5 console
 rentals with a public booking landing page, a customer account portal, and an
 admin operations console.
 
-> **Status:** infrastructure migration in progress. Phase 1 (audit) and Phase 2
-> (GitHub source control & hygiene) are complete. Production currently still runs
-> on Qoder Sites; the target architecture is **GitHub + Vercel + Supabase**.
-> See [Migration roadmap](#migration-roadmap). No application behavior was changed
-> during source-control onboarding.
+> **Status:** production runs on **Vercel + Supabase** (https://prime-games-portal.vercel.app).
+> Phases 1–6 complete. The legacy Qoder Sites deployment and its backend are
+> retired; the code for them has been removed from this repo. See
+> [Migration roadmap](#migration-roadmap).
 
 ## Architecture (current)
 
 - **Landing page** — vanilla HTML/CSS/JS (`web/`), EN/SW i18n, public booking form.
 - **Customer + Admin portal** — React 18 + TypeScript + Vite SPA (`portal/`),
-  HashRouter, built to `web/app/` and served under `/app/`.
-- **Backend** — a single Deno edge function (`functions/`) exposing
-  `/functions/v1/app?action=<name>` with 22 actions; server-side pricing and
-  validation (client money values are never trusted).
-- **Data** — currently two stores: a Qoder-managed Postgres (6 business tables)
-  reached through a Supabase-REST gateway, and a public Supabase project
-  (customer Auth + `profiles`). Phase 3 consolidates these into one Supabase
-  project.
+  HashRouter. On Vercel it builds with base `/portal/` into `web/portal/`; for
+  local/harness work it builds with base `/app/` into `web/app/`.
+- **Backend** — Supabase Edge Function `app`
+  (`supabase/functions/app/`), called as
+  `https://<project>.supabase.co/functions/v1/app?action=<name>`; server-side
+  pricing and validation (client money values are never trusted).
+- **Data** — one Supabase project: Postgres (schema + RLS), Auth, Storage (private
+  KYC bucket). `web/site-config.js` points the browser at the Supabase function
+  on Vercel and keeps same-origin paths for local harnesses.
 
 ## Repository layout
 
 ```
 .
-├── functions/              # Deno edge function (backend)
-│   ├── adapter.mjs         # Qoder DB routing (replaced in Phase 4)
-│   ├── handler.mjs         # Business logic + 22 API actions
-│   └── index.ts            # Entry point
 ├── portal/                 # React + TS + Vite customer/admin SPA
 │   ├── src/                # Components, pages, lib, config
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.ts      # base /app/, build -> ../web/app
+│   ├── vite.config.ts      # base /app/ -> ../web/app (override for Vercel)
 │   └── .env.example        # Public frontend env template
 ├── supabase/
-│   └── profiles.sql        # Profiles DDL + RLS (public Supabase)
-├── dev/
-│   └── local-server.mjs    # Local dev harness (in-memory fixture DB)
+│   ├── functions/app/      # Production Edge Function (handler + libs)
+│   ├── migrations/         # Phase 3 schema + 0013 Model C
+│   └── validation/         # 0011 structure + 0012 scenario tests
+├── dev/                    # Local harnesses, test suite, TOTP enrollment
 ├── web/                    # Static landing + built portal
 │   ├── index.html          # Landing (source)
-│   ├── app.js / styles.css
-│   ├── admin.html / admin.js   # Legacy admin (removed in Phase 7)
-│   ├── assets/             # Runtime images (logo, hero, game covers)
-│   └── app/                # Portal build output (gitignored)
+│   ├── aliases/            # /book, /admin, /admin/login route aliases (Vercel rewrites)
+│   ├── site-config.js      # Host-aware portal/API wiring
+│   ├── app/                # Local portal build (gitignored)
+│   └── portal/             # Vercel portal build (gitignored)
 ├── .gitignore
 └── README.md
 ```
 
-Local-only design references (`dev/figma/`, `vibe_images/`) and the Qoder Sites
-descriptor (`*.qoder.site`) are intentionally **not tracked**; they remain on disk
-for the Qoder development environment.
+Local-only design references (`dev/figma/`, `vibe_images/`) are intentionally
+**not tracked** and remain on the development machine.
 
 ## Prerequisites
 
@@ -65,12 +59,14 @@ for the Qoder development environment.
 Run the backend + landing harness (no external services required):
 
 ```bash
-node dev/local-server.mjs 4174
+node dev/edge-server.mjs 4174
 ```
 
 This serves `web/` at `http://127.0.0.1:4174` and the API at
-`/functions/v1/app`, running the real handler against an **empty in-memory
-fixture database**. Fixture admin password: `local-test-admin` (local only).
+`/functions/v1/app`, running the real Supabase handler against an **empty
+in-memory fixture database**. Fixture admin password: `local-test-admin`
+(local only). Pass `ADMIN_PASSWORD` / `ADMIN_TOTP_SECRET` in the environment to
+exercise other credentials.
 
 For React hot reload, run the portal dev server in a second terminal:
 
@@ -85,8 +81,15 @@ npm run dev          # http://127.0.0.1:4175, proxies /functions -> 127.0.0.1:41
 ```bash
 cd portal
 npm install
-npm run build        # tsc --noEmit, then vite build -> web/app/ (base /app/)
+npm run build          # local/harness layout: tsc --noEmit, vite base /app/ -> web/app/
+npm run build:vercel   # production layout: vite base /portal/ -> web/portal/
 ```
+
+Vercel project settings (dashboard, since the project predates a `vercel.json`):
+build command `cd portal && npm ci && npm run build:vercel`, output directory
+`web`, and env `VITE_API_BASE=https://poaxanthiifatydqbnqq.supabase.co/functions/v1/app`.
+Routes `/book`, `/admin`, `/admin/login` are rewritten to `web/aliases/*.html`
+(see the aliases in the layout above).
 
 ## Environment variables
 
@@ -96,19 +99,20 @@ npm run build        # tsc --noEmit, then vite build -> web/app/ (base /app/)
 | --- | --- |
 | `VITE_SUPABASE_URL` | Public Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Public publishable/anon key (public by design; RLS enforces access) |
+| `VITE_API_BASE` | Absolute Edge Function URL on Vercel; relative for local harness |
 
 These are baked into the client build. **Never** put a `service_role` key in
 frontend env.
 
-**Backend** (runtime secrets, never committed):
+**Backend** (Supabase Edge Function secrets, never committed):
 
 | Variable | Purpose |
 | --- | --- |
-| `ADMIN_PASSWORD` | Admin operations password |
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Data gateway credentials (current Qoder runtime) |
-
-On Supabase Edge Functions these become function secrets; the backend will use a
-`service_role` key **server-side only**.
+| `ADMIN_PASSWORD` | Admin operations password (HMAC key for admin tokens) |
+| `ADMIN_TOTP_SECRET` | Base32 TOTP secret for admin recovery (optional) |
+| `SUPABASE_URL` | Project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service-role key, server-side only |
+| `CORS_ORIGINS` | Comma-separated browser origin allowlist (fail-closed) |
 
 ## Security
 
@@ -117,16 +121,47 @@ On Supabase Edge Functions these become function secrets; the backend will use a
 - Customer PII (bookings, ID numbers) lives in the database, never in this repo.
 - The dev harness uses empty fixture tables and a local-only password.
 
+## Admin password & recovery
+
+The admin password is an edge-function secret — never in the repo or the browser:
+
+```bash
+supabase secrets set ADMIN_PASSWORD='<new-password>'
+```
+
+Rotating it invalidates every issued admin token, because tokens are HMAC'd with
+it (`x-admin-token`, 12 h TTL).
+
+Password recovery uses a TOTP code from an authenticator app. Enroll once:
+
+```bash
+node dev/totp-enroll.mjs
+# scan the printed otpauth:// URI into Google Authenticator / Authy / 1Password
+supabase secrets set ADMIN_TOTP_SECRET=<printed base32 secret>
+```
+
+With `ADMIN_TOTP_SECRET` unset, `admin_recover` fails closed
+(`503 recovery_not_configured`). Treat the authenticator entry as a second
+credential: anyone with a current code can sign in. Both `admin_login` and
+`admin_recover` are throttled per client IP (best effort, per warm instance).
+
+For local development pass the same values to the harness:
+
+```bash
+ADMIN_PASSWORD='<new-password>' ADMIN_TOTP_SECRET=<secret> node dev/edge-server.mjs
+node dev/totp-enroll.mjs --code <secret>   # current code, for manual testing
+```
+
 ## Migration roadmap
 
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1 | Repository & infrastructure audit | Complete |
 | 2 | GitHub source control & repository hygiene | Complete |
-| 3 | Supabase database consolidation | Pending |
-| 4 | Backend → Supabase Edge Functions | Pending |
-| 5 | Frontend integration & Vercel preparation | Pending |
-| 6 | Production cutover & validation | Pending |
+| 3 | Supabase database consolidation | Complete |
+| 4 | Backend → Supabase Edge Functions | Complete |
+| 5 | Frontend integration & Vercel preparation | Complete |
+| 6 | Production cutover & validation | Complete |
 | 7 | Optional post-migration improvements | Pending (separate approval) |
 
 ## Ownership

@@ -3,8 +3,9 @@ node_modules/
 .pnp
 .pnp.js
 
-# Build output (Vite portal builds into web/app)
+# Build output (Vite portal builds into web/app locally, web/portal on Vercel)
 web/app/
+web/portal/
 dist/
 build/
 portal/dist-preview/

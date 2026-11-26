@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:vercel": "tsc --noEmit && vite build --base=/portal/ --outDir=../web/portal",
     "preview": "vite preview"
   },
   "dependencies": {
