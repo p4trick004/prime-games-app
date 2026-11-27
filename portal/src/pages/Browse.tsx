@@ -7,6 +7,7 @@ import {
   priceBooking, type PackageKey,
 } from "../lib/pricing";
 import { fmtTZS, fmtDate, fmtTime, addDays, eatToday } from "../lib/format";
+import { NIDA_ERROR, isValidNida, normalizeNida } from "../lib/nida";
 import { Badge, Ic } from "../components/ui";
 
 const PHONE_RE = /^(\+?255|0)[67]\d{8}$/;
@@ -178,7 +179,10 @@ export function Browse() {
     setError(null);
     if (!PHONE_RE.test(cleanPhone(phone))) { setError("Enter a valid Tanzanian phone number (e.g. 0613138426)."); return; }
     if (!PHONE_RE.test(cleanPhone(ecPhone))) { setError("Enter a valid emergency contact phone number."); return; }
-    if (idNumber.trim().length < 4) { setError("Enter your full ID number — we verify it before delivery."); return; }
+    if (idType === "nida" ? !isValidNida(idNumber) : idNumber.trim().length < 4) {
+      setError(idType === "nida" ? NIDA_ERROR : "Enter your full ID number — we verify it before delivery.");
+      return;
+    }
     if (name.trim().length < 2) { setError("Enter your full name."); return; }
     if (ecName.trim().length < 2) { setError("Enter an emergency contact name."); return; }
     if (!agreed) { setError("Please accept the rental rules to continue."); return; }
@@ -202,7 +206,7 @@ export function Browse() {
           start_date: startDate,
           start_time: startTime,
           id_type: idType,
-          id_number: idNumber.trim(),
+          id_number: idType === "nida" ? normalizeNida(idNumber) : idNumber.trim(),
           ec_name: ecName.trim(),
           ec_phone: cleanPhone(ecPhone),
           payment_method: paymentMethod,

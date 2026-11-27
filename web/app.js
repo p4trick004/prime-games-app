@@ -64,6 +64,7 @@ const I18N = {
     "book.phoneErr": "Enter a valid Tanzanian number (e.g. 0712345678).",
     "book.idType": "ID type (KYC)", "id.nida": "NIDA ID", "id.licence": "Driver's licence", "id.passport": "Passport",
     "book.idNumber": "ID number", "book.idNumberPh": "e.g. 19900101-12345-67890-12", "book.idErr": "Enter your ID number.",
+    "book.nidaErr": "Enter a valid NIDA number — 20 digits, hyphens optional.",
     "book.ecName": "Emergency contact name", "book.ecNamePh": "e.g. Juma Hassan", "book.ecNameErr": "Please enter an emergency contact name.",
     "book.ecPhone": "Emergency contact phone",
     "book.kycNote": "We verify your ID at delivery and return it with the console. No deposit is required.",
@@ -179,6 +180,7 @@ const I18N = {
     "book.phoneErr": "Weka namba sahihi ya Tanzania (mf. 0712345678).",
     "book.idType": "Aina ya kitambulisho (KYC)", "id.nida": "Kitambulisho cha NIDA", "id.licence": "Leseni ya udereva", "id.passport": "Paspoti",
     "book.idNumber": "Namba ya kitambulisho", "book.idNumberPh": "mf. 19900101-12345-67890-12", "book.idErr": "Weka namba ya kitambulisho chako.",
+    "book.nidaErr": "Weka namba sahihi ya NIDA — tarakimu 20, kistari si lazima.",
     "book.ecName": "Jina la mwasiliani wa dharura", "book.ecNamePh": "mf. Juma Hassan", "book.ecNameErr": "Tafadhali weka jina la mwasiliani wa dharura.",
     "book.ecPhone": "Simu ya mwasiliani wa dharura",
     "book.kycNote": "Tunakagua kitambulisho chako wakati wa kupeleka na kurudisha pamoja na konsoli. Hakuna amana inayohitajika.",
@@ -350,6 +352,8 @@ function applyLanguage() {
   document.querySelectorAll("#langToggle .lang-opt").forEach((opt) => {
     opt.classList.toggle("active", opt.dataset.lang === lang);
   });
+  const idErr = $("#idError");
+  if (!idErr.hidden) idErr.textContent = $("#idTypeSelect").value === "nida" ? t("book.nidaErr") : t("book.idErr");
   $("#langToggle").setAttribute("aria-label", lang === "sw" ? "Badili hadi Kiingereza" : "Switch to Swahili");
   applyPackageUi();
   if (!$("#confirmPanel").hidden && lastBooking) renderConfirmation(lastBooking);
@@ -532,8 +536,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const address = $("#addressInput").value.trim();
     fail("#addressInput", "#addressError", address.length < 3);
 
-    const idNumber = $("#idNumberInput").value.trim();
-    fail("#idNumberInput", "#idError", idNumber.length < 4);
+    const idType = $("#idTypeSelect").value;
+    const idRaw = $("#idNumberInput").value;
+    $("#idError").textContent = idType === "nida" ? t("book.nidaErr") : t("book.idErr");
+    const idValid = idType === "nida" ? PGNida.isValidNida(idRaw) : idRaw.trim().length >= 4;
+    fail("#idNumberInput", "#idError", !idValid);
+    const idNumber = idType === "nida" ? PGNida.normalizeNida(idRaw) : idRaw.trim();
 
     const ecName = $("#ecNameInput").value.trim();
     fail("#ecNameInput", "#ecNameError", ecName.length < 2);
@@ -545,7 +553,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!ok) return;
 
     const base = currentBooking();
-    const idType = $("#idTypeSelect").value;
     const pay = document.querySelector('input[name="pay"]:checked').value;
     lastPayload = {
       package: base.pkgKey,

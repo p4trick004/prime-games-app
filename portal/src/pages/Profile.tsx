@@ -5,6 +5,7 @@ import { useCustomer } from "../lib/customer";
 import { api } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { fmtTZS } from "../lib/format";
+import { NIDA_ERROR, isValidNida, normalizeNida } from "../lib/nida";
 import { WHATSAPP_NUMBER } from "../config";
 import { Badge, Ic } from "../components/ui";
 
@@ -55,11 +56,15 @@ export function Profile() {
   // Masked-ID submission goes through the backend (kyc_submit), which stores
   // only the masked number and sets kyc_status=pending for admin review.
   async function submitKyc() {
-    if (kycNumber.trim().length < 4) { setSaveErr("Enter your full ID number."); return; }
+    const idNumber = kycType === "nida" ? normalizeNida(kycNumber) : kycNumber.trim();
+    if (kycType === "nida" ? !isValidNida(kycNumber) : idNumber.length < 4) {
+      setSaveErr(kycType === "nida" ? NIDA_ERROR : "Enter your full ID number.");
+      return;
+    }
     setKycBusy(true); setSaveErr(null);
     try {
       const token = await accessToken();
-      await api("kyc_submit", { method: "POST", token, body: { id_type: kycType, id_number: kycNumber.trim() } });
+      await api("kyc_submit", { method: "POST", token, body: { id_type: kycType, id_number: idNumber } });
       setKycNumber("");
       await refreshProfile();
       const wa = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
