@@ -157,11 +157,11 @@ export function Browse() {
           <Badge tone="green">PENDING APPROVAL</Badge>
           <h3 style={{ margin: "14px 0 6px" }}>Your booking is in our system</h3>
           <p style={{ color: "var(--dim)", fontSize: ".9rem" }}>
-            We've received your booking and will review and confirm it within 30 minutes (8:00–22:00 EAT). No further action is needed — track its status under My bookings.
+            We've received your booking and will review and confirm it within 30 minutes (8:00–22:00 EAT). No further action is needed — its status appears on your dashboard and in your complete history.
           </p>
           <div className="kv"><dt>Total to pay</dt><dd className="mono gold">{fmtTZS(success.total)}</dd></div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-            <button className="btn btn-primary" type="button" onClick={() => navigate("/bookings")}>View my bookings</button>
+            <button className="btn btn-primary" type="button" onClick={() => navigate("/")}>Back to dashboard</button>
           </div>
         </div>
       </>

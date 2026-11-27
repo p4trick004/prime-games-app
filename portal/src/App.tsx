@@ -8,9 +8,6 @@ import { Login, Register } from "./pages/Auth";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Dashboard } from "./pages/Dashboard";
 import { Browse } from "./pages/Browse";
-import { Bookings } from "./pages/Bookings";
-import { Rentals } from "./pages/Rentals";
-import { Payments } from "./pages/Payments";
 import { Profile } from "./pages/Profile";
 
 import { AdminAuthProvider, useAdminAuth } from "./lib/adminAuth";
@@ -75,9 +72,6 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/browse" element={<Protected><Browse /></Protected>} />
-            <Route path="/bookings" element={<Protected><Bookings /></Protected>} />
-            <Route path="/rentals" element={<Protected><Rentals /></Protected>} />
-            <Route path="/payments" element={<Protected><Payments /></Protected>} />
             <Route path="/profile" element={<Protected><Profile /></Protected>} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/*" element={<AdminArea />} />

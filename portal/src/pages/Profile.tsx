@@ -8,6 +8,7 @@ import { fmtTZS } from "../lib/format";
 import { NIDA_ERROR, isValidNida, normalizeNida } from "../lib/nida";
 import { WHATSAPP_NUMBER } from "../config";
 import { Badge, Ic } from "../components/ui";
+import { MyRecords } from "./MyRecords";
 
 const PREMIUM_BENEFITS = [
   ["Higher credit limit", "Rent now, pay later within your approved limit"],
@@ -22,7 +23,7 @@ const DOC_TYPES = ["nida", "licence", "passport", "selfie", "proof_of_address", 
 const DOC_MIME = ["image/jpeg", "image/png", "application/pdf"];
 
 export function Profile() {
-  const { profile, session, signOut, updateProfile, refreshProfile, accessToken } = useAuth();
+  const { profile, session, signOut, updateProfile, refreshProfile, accessToken, requestPasswordReset } = useAuth();
   const { customer, linkPending, refresh: refreshCustomer } = useCustomer();
   const navigate = useNavigate();
 
@@ -44,6 +45,18 @@ export function Profile() {
   const [linkPhone, setLinkPhone] = useState("");
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkMsg, setLinkMsg] = useState<string | null>(null);
+
+  const [secBusy, setSecBusy] = useState(false);
+  const [secMsg, setSecMsg] = useState<string | null>(null);
+
+  async function sendPasswordReset() {
+    const email = session?.user.email;
+    if (!email) return;
+    setSecBusy(true); setSecMsg(null);
+    const err = await requestPasswordReset(email);
+    setSecBusy(false);
+    setSecMsg(err ?? "Password reset link sent — check your inbox.");
+  }
 
   async function save() {
     setBusy(true); setSaved(false); setSaveErr(null);
@@ -160,6 +173,10 @@ export function Profile() {
         </div>
       ) : null}
 
+      <div className="section-head" style={{ marginBottom: 14 }}>
+        <h2>Personal account</h2>
+      </div>
+
       <div className="grid two">
         <div className="grid" style={{ gap: 16 }}>
           <div className="card">
@@ -266,6 +283,19 @@ export function Profile() {
               <span style={{ fontSize: ".9rem" }}>SMS / WhatsApp confirmations for booking updates</span>
             </div>
           </div>
+
+          <div className="card">
+            <h3>Password &amp; security</h3>
+            <p style={{ color: "var(--dim)", fontSize: ".88rem" }}>
+              Send yourself a secure link to change the password for {session?.user.email ?? "your account"}.
+            </p>
+            <button className="btn btn-ghost btn-sm" type="button" disabled={secBusy} onClick={() => void sendPasswordReset()}>
+              {secBusy ? "Sending…" : "Send password reset link"}
+            </button>
+            {secMsg ? (
+              <p style={{ color: /sent/i.test(secMsg) ? "var(--green)" : "var(--gold)", fontSize: ".85rem", margin: "10px 0 0" }}>{secMsg}</p>
+            ) : null}
+          </div>
         </div>
 
         <div className="grid" style={{ gap: 16 }}>
@@ -301,6 +331,10 @@ export function Profile() {
             </a>
           </div>
         </div>
+      </div>
+
+      <div style={{ marginTop: 22 }}>
+        <MyRecords />
       </div>
     </>
   );

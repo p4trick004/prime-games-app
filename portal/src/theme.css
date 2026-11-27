@@ -69,9 +69,18 @@ h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; }
 .page-head h1 { font-size: 1.65rem; font-weight: 800; letter-spacing: -.01em; }
 .page-head p { color: var(--dim); margin: 6px 0 0; max-width: 620px; font-size: .93rem; }
 
-/* mobile top bar + bottom tabs */
+/* mobile top bar */
 .topbar { display: none; }
-.tabbar { display: none; }
+.menu-btn {
+  width: 38px; height: 38px; flex: 0 0 38px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line-strong); border-radius: 9px; cursor: pointer;
+}
+.menu-btn:hover { border-color: var(--cyan); }
+.menu-btn.side-close { display: none; margin-left: auto; }
+.side-backdrop { display: none; }
+
+/* buttons used as nav rows */
+.side-nav .nav-item { width: 100%; background: none; text-align: left; font-family: var(--font-body); cursor: pointer; }
 
 /* ---------- Cards / stats ---------- */
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
@@ -272,6 +281,49 @@ table.data tr:last-child td { border-bottom: 0; }
 .spinner { width: 26px; height: 26px; border: 3px solid var(--line-strong); border-top-color: var(--cyan); border-radius: 50%; animation: spin .8s linear infinite; margin: 40px auto; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- Dashboard ---------- */
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.section-head h2 { font-size: 1.05rem; font-weight: 700; }
+.section-head h3 { font-size: 1.02rem; font-weight: 700; }
+.section-sub { color: var(--dim); font-size: .85rem; margin: 6px 0 0; }
+.dash-rentals { display: flex; flex-direction: column; gap: 14px; }
+.rental-card { border-color: rgba(34, 217, 238, .42); }
+.hero-countdown {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  margin-bottom: 16px; border-color: rgba(34, 217, 238, .42);
+}
+.hero-countdown-info { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
+.hero-countdown-info strong { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 1.02rem; }
+.hero-countdown-sub { color: var(--dim); font-size: .85rem; }
+.rental-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.rental-top h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 1.02rem; }
+.rental-sub { color: var(--dim); margin: 6px 0 0; font-size: .85rem; }
+.rental-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+  margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line);
+}
+.rental-grid strong { display: block; font-size: .92rem; }
+.mini-label { display: block; font: 600 9.5px var(--font-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); margin-bottom: 5px; }
+.rental-note { color: var(--dim); font-size: .83rem; margin: 14px 0 0; }
+.rental-note strong { color: var(--text); }
+.next-booking { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.next-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
+.next-when { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.next-when strong { font-size: .95rem; }
+.next-when span { color: var(--dim); font-size: .85rem; }
+.kv-list { margin: 8px 0 0; }
+.dash-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+/* ---------- My records ---------- */
+.records-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.records-head p { color: var(--dim); font-size: .88rem; margin: 6px 0 0; max-width: 560px; }
+.records-foot {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);
+}
+.records-note { color: var(--dim); font-size: .78rem; margin: 12px 0 0; }
+.records-ok { color: var(--green); font-size: .82rem; margin: 8px 0 0; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
   .grid.stats { grid-template-columns: repeat(2, 1fr); }
@@ -279,24 +331,28 @@ table.data tr:last-child td { border-bottom: 0; }
   .plan-grid, .game-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 860px) {
-  .sidebar { display: none; }
-  .main { padding: 74px 16px 96px; }
+  .sidebar {
+    display: flex; position: fixed; top: 0; left: 0; bottom: 0; z-index: 40;
+    height: 100vh; width: min(84vw, 300px); flex: 0 0 auto;
+    transform: translateX(-105%); transition: transform .22s ease, visibility .22s;
+    visibility: hidden; box-shadow: 0 10px 50px rgba(0, 0, 0, .55);
+  }
+  .sidebar.open { transform: translateX(0); visibility: visible; }
+  .sidebar .side-close { display: inline-flex; }
+  .side-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 35;
+    background: rgba(0, 0, 0, .62); backdrop-filter: blur(2px);
+  }
+  .main { padding: 74px 16px 40px; }
   .topbar {
-    display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 20;
-    align-items: center; justify-content: space-between; gap: 12px;
-    padding: 12px 16px; background: rgba(6, 9, 8, .92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+    display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+    align-items: center; justify-content: flex-start; gap: 10px;
+    padding: 10px 16px; background: rgba(6, 9, 8, .94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
   }
   .topbar .brand { display: flex; align-items: center; gap: 9px; }
   .topbar .brand .mark { width: 32px; height: 32px; border-radius: 9px; background: var(--cyan); display: grid; place-items: center; color: #04252a; }
   .topbar .brand strong { font: 800 14px var(--font-display); }
-  .tabbar {
-    display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
-    background: rgba(8, 12, 11, .96); backdrop-filter: blur(8px); border-top: 1px solid var(--line);
-    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
-  }
-  .tabbar a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--dim); font: 600 10px var(--font-body); padding: 4px 0; }
-  .tabbar a svg { width: 19px; height: 19px; }
-  .tabbar a.active { color: var(--cyan); }
+  .topbar .badge { margin-left: auto; }
 }
 @media (max-width: 560px) {
   .grid.stats { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -304,4 +360,7 @@ table.data tr:last-child td { border-bottom: 0; }
   .plan-grid, .game-grid { grid-template-columns: 1fr; }
   .field-row { grid-template-columns: 1fr; }
   .page-head h1 { font-size: 1.35rem; }
+  .rental-grid { grid-template-columns: 1fr 1fr; }
+  .countdown { gap: 6px; }
+  .countdown .num { font-size: 1.25rem; padding: 4px 8px; }
 }
