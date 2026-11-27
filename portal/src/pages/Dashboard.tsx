@@ -48,16 +48,12 @@ export function Dashboard() {
   const commitments = bookings.filter(
     (b) => b.payment_status === "unpaid" && (b.status === "pending" || b.status === "confirmed"),
   );
-  const commitmentTotal = commitments.reduce((s, b) => s + b.total, 0);
-  const paidCurrent = payments
-    .filter((p) => p.status === "settled" && p.booking_id && currentIds.has(p.booking_id))
-    .reduce((s, p) => s + p.amount, 0);
   const paidByBooking = new Map<string, number>();
   for (const p of payments) {
     if (p.status !== "settled" || !p.booking_id) continue;
     paidByBooking.set(p.booking_id, (paidByBooking.get(p.booking_id) ?? 0) + p.amount);
   }
-  const recent = payments.filter((p) => p.booking_id && currentIds.has(p.booking_id)).slice(0, 3);
+  const recent = payments.filter((p) => p.booking_id && currentIds.has(p.booking_id));
   const settled = debt <= 0 && commitments.length === 0;
 
   const premium = customer?.customer_tier === "premium" || (!customer && profile?.tier === "premium");
@@ -212,59 +208,33 @@ export function Dashboard() {
           )}
         </section>
 
-        <div className="grid" style={{ gap: 16 }}>
-          <section className="card" aria-labelledby="next-booking-title">
-            <h3 id="next-booking-title">Next booking</h3>
-            {next ? (
-              <div className="next-booking">
-                <div className="next-row">
-                  <span className="mono cyan">{next.ref}</span>
-                  <Badge tone={BOOKING_TONE[next.status]}>{STATUS_LABEL[next.status].toUpperCase()}</Badge>
-                </div>
-                <p className="next-when">
-                  <strong>{pkgName(next.package_key)}</strong>
-                  <span>{fmtDateShort(next.start_date)} at {fmtTime(next.start_time)}</span>
-                </p>
-                <div className="next-row">
-                  <span className="mono">{fmtTZS(next.total)}</span>
-                  <Badge tone={next.payment_status === "paid" ? "green" : "gold"}>
-                    {next.payment_status === "paid" ? "PAID" : "PAYMENT DUE"}
-                  </Badge>
-                </div>
-                <a className="btn btn-ghost btn-sm" href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener">Change booking</a>
+        <section className="card" aria-labelledby="next-booking-title">
+          <h3 id="next-booking-title">Next booking</h3>
+          {next ? (
+            <div className="next-booking">
+              <div className="next-row">
+                <span className="mono cyan">{next.ref}</span>
+                <Badge tone={BOOKING_TONE[next.status]}>{STATUS_LABEL[next.status].toUpperCase()}</Badge>
               </div>
-            ) : (
-              <Empty title="No upcoming bookings">
-                <p style={{ margin: "0 0 12px" }}>Nothing scheduled yet.</p>
-                <Link to="/browse" className="btn btn-primary btn-sm">Book a console</Link>
-              </Empty>
-            )}
-          </section>
-
-          <section className="card" aria-labelledby="payments-title">
-            <div className="section-head" style={{ marginBottom: 4 }}>
-              <h3 id="payments-title">Payments &amp; balances</h3>
-              <Badge tone={debt > 0 ? "gold" : commitments.length ? "cyan" : "green"}>
-                {debt > 0 ? "BALANCE OUTSTANDING" : commitments.length ? "PAYMENT DUE" : "ALL SETTLED"}
-              </Badge>
+              <p className="next-when">
+                <strong>{pkgName(next.package_key)}</strong>
+                <span>{fmtDateShort(next.start_date)} at {fmtTime(next.start_time)}</span>
+              </p>
+              <div className="next-row">
+                <span className="mono">{fmtTZS(next.total)}</span>
+                <Badge tone={next.payment_status === "paid" ? "green" : "gold"}>
+                  {next.payment_status === "paid" ? "PAID" : "PAYMENT DUE"}
+                </Badge>
+              </div>
+              <a className="btn btn-ghost btn-sm" href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener">Change booking</a>
             </div>
-            <dl className="kv-list">
-              <div className="kv"><dt>Outstanding balance</dt><dd className={`mono ${debt > 0 ? "gold" : "green"}`}>{fmtTZS(debt)}</dd></div>
-              <div className="kv"><dt>Paid toward current &amp; next</dt><dd className="mono green">{fmtTZS(paidCurrent)}</dd></div>
-              <div className="kv">
-                <dt>Current charges unpaid</dt>
-                <dd>{commitments.length ? `${commitments.length} booking${commitments.length === 1 ? "" : "s"} · ${fmtTZS(commitmentTotal)}` : "None"}</dd>
-              </div>
-              {premium ? (
-                <>
-                  <div className="kv"><dt>Premium credit limit</dt><dd className="mono">{fmtTZS(credit)}</dd></div>
-                  <div className="kv"><dt>Available credit</dt><dd className="mono">{fmtTZS(Math.max(0, credit - debt))}</dd></div>
-                </>
-              ) : null}
-            </dl>
-            <Link to="/profile" className="btn btn-ghost btn-sm" style={{ marginTop: 12 }}>Records &amp; receipts</Link>
-          </section>
-        </div>
+          ) : (
+            <Empty title="No upcoming bookings">
+              <p style={{ margin: "0 0 12px" }}>Nothing scheduled yet.</p>
+              <Link to="/browse" className="btn btn-primary btn-sm">Book a console</Link>
+            </Empty>
+          )}
+        </section>
       </div>
 
       <div className="grid two" style={{ marginTop: 16 }}>
@@ -272,7 +242,12 @@ export function Dashboard() {
           <section className="card" aria-labelledby="activity-title">
             <h3 id="activity-title">Recent activity</h3>
             <p className="section-sub">Payments recorded against your current and next bookings.</p>
-            <div className="update-list" style={{ marginTop: 12 }}>
+            <div
+              className="update-list activity-scroll"
+              style={{ marginTop: 12 }}
+              tabIndex={recent.length > 1 ? 0 : -1}
+              aria-label={recent.length > 1 ? "Recent payments. Scroll for earlier activity." : undefined}
+            >
               {recent.map((p) => (
                 <div className="update" key={p.id}>
                   <span className={`ico ${p.amount < 0 ? "gold" : p.status === "settled" ? "green" : "cyan"}`}>
@@ -287,6 +262,9 @@ export function Dashboard() {
                 </div>
               ))}
             </div>
+            {recent.length > 1 ? (
+              <p className="activity-hint">Scroll to see {recent.length - 1} earlier {recent.length === 2 ? "activity" : "activities"} ↓</p>
+            ) : null}
           </section>
         ) : (
           <section className="card" aria-labelledby="activity-title">
